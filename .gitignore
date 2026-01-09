@@ -46,3 +46,7 @@ extract_docs.py
 
 # Documentation (private)
 /docs/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
