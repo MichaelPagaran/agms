@@ -1,0 +1,25 @@
+# Import Linter Configuration
+# Enforces modular monolith boundaries
+
+root_package: apps
+
+contract_types:
+  - name: independence
+    type: independence
+    modules:
+      - apps.organizations
+      - apps.identity
+      - apps.registry
+      - apps.ledger
+      - apps.assets
+      - apps.intelligence
+      - apps.governance
+
+layers:
+  - name: ledger-registry-boundary
+    type: layers
+    layers:
+      - apps.ledger
+      - apps.registry.services
+    containers:
+      - apps

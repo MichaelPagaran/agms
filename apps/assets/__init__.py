@@ -1,0 +1,1 @@
+"""Assets app - Facility Tracking"""

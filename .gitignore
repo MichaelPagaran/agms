@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media
+staticfiles
+static_root
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Docker
+docker-compose.override.yml
+
+# Temp files
+docs_context.txt
+extract_docs.py
+
+# Documentation (private)
+/docs/
