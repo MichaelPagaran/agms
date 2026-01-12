@@ -16,6 +16,10 @@ class Permissions:
     # Governance
     GOVERNANCE_VIEW_DOCS = "governance.view_docs"
     GOVERNANCE_MANAGE_DOCS = "governance.manage_docs"
+    
+    # Registry
+    REGISTRY_VIEW_ALL_UNITS = "registry.view_all_units"
+    REGISTRY_MANAGE_UNIT = "registry.manage_unit"
 
 
 # Static Role -> Permission Mapping
@@ -29,6 +33,8 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         Permissions.IDENTITY_MANAGE_USER,
         Permissions.GOVERNANCE_VIEW_DOCS,
         Permissions.GOVERNANCE_MANAGE_DOCS,
+        Permissions.REGISTRY_VIEW_ALL_UNITS,
+        Permissions.REGISTRY_MANAGE_UNIT,
     ],
     UserRole.STAFF: [
         Permissions.LEDGER_VIEW_EXPENSE,
@@ -36,6 +42,8 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         Permissions.LEDGER_VIEW_REPORT,
         Permissions.IDENTITY_VIEW_USER,
         Permissions.GOVERNANCE_VIEW_DOCS,
+        Permissions.REGISTRY_VIEW_ALL_UNITS,
+        Permissions.REGISTRY_MANAGE_UNIT,
     ],
     UserRole.BOARD: [
         Permissions.LEDGER_VIEW_EXPENSE,
@@ -44,14 +52,18 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         Permissions.IDENTITY_VIEW_USER,
         Permissions.GOVERNANCE_VIEW_DOCS,
         Permissions.GOVERNANCE_MANAGE_DOCS,
+        Permissions.REGISTRY_VIEW_ALL_UNITS,
+        Permissions.REGISTRY_MANAGE_UNIT,
     ],
     UserRole.AUDITOR: [
         Permissions.LEDGER_VIEW_EXPENSE,
         Permissions.LEDGER_VIEW_REPORT,
         Permissions.GOVERNANCE_VIEW_DOCS,
+        Permissions.REGISTRY_VIEW_ALL_UNITS,
     ],
     UserRole.HOMEOWNER: [
         Permissions.GOVERNANCE_VIEW_DOCS,
+        # Homeowners do NOT get generic view_all, they rely on 'view own' logic
     ],
 }
 

@@ -1,10 +1,14 @@
 from django.core.management.base import BaseCommand
 from apps.identity.models import User, UserRole
+import uuid
 
 class Command(BaseCommand):
     help = 'Seeds the database with RBAC test users'
 
     def handle(self, *args, **options):
+        # Fake Org ID for testing
+        test_org_id = uuid.uuid4()
+        
         users = [
             {'username': 'admin', 'role': UserRole.ADMIN},
             {'username': 'staff', 'role': UserRole.STAFF},
@@ -18,6 +22,9 @@ class Command(BaseCommand):
             
             # Common setup
             user.role = u['role']
+            # Set org_id if not set (or always set for test consistency)
+            if not user.org_id:
+                user.org_id = test_org_id
             if u['role'] == UserRole.ADMIN:
                 user.is_staff = True
                 user.is_superuser = True

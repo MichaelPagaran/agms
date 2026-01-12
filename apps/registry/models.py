@@ -14,6 +14,11 @@ class OccupancyStatus(models.TextChoices):
     UNDER_CONSTRUCTION = 'UNDER_CONSTRUCTION', 'Under Construction'
 
 
+class UnitCategory(models.TextChoices):
+    UNIT = 'UNIT', 'Unit'
+    INFRASTRUCTURE = 'INFRASTRUCTURE', 'Infrastructure'
+
+
 class Unit(models.Model):
     """
     Represents a Lot/Block (Subdivision) or Unit/Floor (Condo).
@@ -22,14 +27,23 @@ class Unit(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     org_id = models.UUIDField(db_index=True)  # No FK - modular boundary
     
-    # Generic identifiers (Block/Floor, Lot/Unit)
-    level_1 = models.CharField(max_length=50, help_text="Block or Floor")
-    level_2 = models.CharField(max_length=50, help_text="Lot or Unit")
+    # Generic identifiers
+    section_identifier = models.CharField(max_length=50, help_text="Block or Floor")
+    unit_identifier = models.CharField(max_length=50, help_text="Lot or Unit")
+    location_name = models.CharField(max_length=100, help_text="Street or Building Name", blank=True)
+    
+    category = models.CharField(
+        max_length=20,
+        choices=UnitCategory.choices,
+        default=UnitCategory.UNIT
+    )
     
     # Owner information
-    owner_name = models.CharField(max_length=255)
-    owner_email = models.EmailField(blank=True)
-    owner_phone = models.CharField(max_length=20, blank=True)
+    owner_id = models.UUIDField(null=True, blank=True, db_index=True) # Linked to Identity User
+    owner_name = models.CharField(max_length=255, blank=True, null=True)
+    owner_email = models.EmailField(blank=True, null=True)
+    owner_phone = models.CharField(max_length=20, blank=True, null=True)
+    resident_name = models.CharField(max_length=255, blank=True, null=True, help_text="Main point of contact")
     
     # Status tracking (RA 9904 compliance)
     membership_status = models.CharField(
@@ -52,12 +66,12 @@ class Unit(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['level_1', 'level_2']
-        unique_together = ['org_id', 'level_1', 'level_2']
+        ordering = ['section_identifier', 'unit_identifier']
+        unique_together = ['org_id', 'section_identifier', 'unit_identifier', 'location_name']
 
     def __str__(self):
-        return f"{self.level_1} {self.level_2}"
+        return f"{self.location_name} - {self.section_identifier} {self.unit_identifier}"
     
     @property
     def full_label(self):
-        return f"{self.level_1} {self.level_2}"
+        return f"{self.location_name} {self.section_identifier} {self.unit_identifier}"

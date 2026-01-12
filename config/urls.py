@@ -12,9 +12,11 @@ api = NinjaAPI(
     docs_url="/docs",
 )
 
-# Register app routers here as they are built
 from apps.identity.api import router as identity_router
+from apps.registry.api import router as registry_router
+
 api.add_router("/identity/", identity_router)
+api.add_router("/registry/units/", registry_router)
 # from apps.organizations.api import ...
 
 urlpatterns = [
