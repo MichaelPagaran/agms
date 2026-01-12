@@ -20,6 +20,9 @@ class Permissions:
     # Registry
     REGISTRY_VIEW_ALL_UNITS = "registry.view_all_units"
     REGISTRY_MANAGE_UNIT = "registry.manage_unit"
+    
+    # Organizations
+    ORGANIZATION_MANAGE = "organization.manage"
 
 
 # Static Role -> Permission Mapping
@@ -35,6 +38,7 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         Permissions.GOVERNANCE_MANAGE_DOCS,
         Permissions.REGISTRY_VIEW_ALL_UNITS,
         Permissions.REGISTRY_MANAGE_UNIT,
+        Permissions.ORGANIZATION_MANAGE,
     ],
     UserRole.STAFF: [
         Permissions.LEDGER_VIEW_EXPENSE,

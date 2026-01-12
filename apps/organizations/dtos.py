@@ -1,16 +1,18 @@
-"""
-DTOs for Organizations app.
-These are the data structures exposed to other apps.
-"""
-from dataclasses import dataclass
+from ninja import Schema
+from ninja.orm import create_schema
 from uuid import UUID
-from typing import Dict, Any
+from typing import Optional, Dict, Any
+from .models import Organization
 
+OrganizationOut = create_schema(Organization, exclude=['created_at', 'updated_at'])
 
-@dataclass(frozen=True)
-class OrganizationDTO:
-    id: UUID
+class OrganizationIn(Schema):
     name: str
-    org_type: str
-    settings: Dict[str, Any]
-    is_active: bool
+    org_type: str = "SUBDIVISION" # SUBDIVISION or CONDOMINIUM
+    settings: Dict[str, Any] = {}
+    logo: Optional[str] = None
+    tin: Optional[str] = None
+    dhsud_registration: Optional[str] = None
+    address: Optional[str] = None
+    fiscal_year_start_month: int = 1
+    is_active: bool = True

@@ -24,9 +24,9 @@ class Organization(models.Model):
         help_text="Flexible metadata (e.g., label overrides for Condo vs Subdivision)"
     )
     logo = models.URLField(blank=True, null=True)
-    tin = models.CharField(max_length=50, blank=True, verbose_name="TIN")
-    dhsud_registration = models.CharField(max_length=100, blank=True)
-    address = models.TextField(blank=True)
+    tin = models.CharField(max_length=50, blank=True, null=True, verbose_name="TIN")
+    dhsud_registration = models.CharField(max_length=100, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
     fiscal_year_start_month = models.PositiveSmallIntegerField(default=1)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
