@@ -7,7 +7,8 @@ class UserRole(models.TextChoices):
     ADMIN = 'ADMIN', 'Administrator'
     STAFF = 'STAFF', 'Staff'
     BOARD = 'BOARD', 'Board Member'
-    MEMBER = 'MEMBER', 'Member'
+    AUDITOR = 'AUDITOR', 'Auditor'
+    HOMEOWNER = 'HOMEOWNER', 'Home Owner'
 
 
 class User(AbstractUser):
@@ -20,7 +21,7 @@ class User(AbstractUser):
     role = models.CharField(
         max_length=20,
         choices=UserRole.choices,
-        default=UserRole.MEMBER
+        default=UserRole.HOMEOWNER
     )
     phone = models.CharField(max_length=20, blank=True)
     

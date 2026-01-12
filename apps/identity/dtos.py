@@ -1,7 +1,7 @@
 """DTOs for Identity app."""
 from dataclasses import dataclass
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass(frozen=True)
@@ -12,3 +12,4 @@ class UserDTO:
     role: str
     org_id: Optional[UUID]
     is_active: bool
+    permissions: List[str]

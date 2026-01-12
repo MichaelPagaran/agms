@@ -1,6 +1,7 @@
 """Services for Identity app."""
 from .models import User
 from .dtos import UserDTO
+from .permissions import get_user_permissions
 
 
 def get_user_dto(user_id) -> UserDTO | None:
@@ -13,6 +14,7 @@ def get_user_dto(user_id) -> UserDTO | None:
             role=user.role,
             org_id=user.org_id,
             is_active=user.is_active,
+            permissions=get_user_permissions(user),
         )
     except User.DoesNotExist:
         return None
