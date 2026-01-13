@@ -1,0 +1,130 @@
+{% extends "ledger/reports/base.html" %}
+
+{% block content %}
+<div class="summary-section">
+    <div class="summary-title">Annual Summary - {{ year }}</div>
+    <div class="summary-grid">
+        <div class="summary-box">
+            <div class="summary-label">Annual Income</div>
+            <div class="summary-value income-value">₱{{ total_income|floatformat:2 }}</div>
+        </div>
+        <div class="summary-box">
+            <div class="summary-label">Annual Expenses</div>
+            <div class="summary-value expense-value">₱{{ total_expense|floatformat:2 }}</div>
+        </div>
+        <div class="summary-box">
+            <div class="summary-label">Net Balance</div>
+            <div class="summary-value {% if net_balance >= 0 %}net-positive{% else %}net-negative{% endif %}">
+                ₱{{ net_balance|floatformat:2 }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Breakdown -->
+<div class="section-header">Monthly Breakdown</div>
+<table>
+    <thead>
+        <tr>
+            <th>Month</th>
+            <th class="amount-cell">Income</th>
+            <th class="amount-cell">Expense</th>
+            <th class="amount-cell">Net</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for month in monthly_data %}
+        <tr>
+            <td>{{ month.month_name }}</td>
+            <td class="amount-cell income-value">₱{{ month.income|floatformat:2 }}</td>
+            <td class="amount-cell expense-value">₱{{ month.expense|floatformat:2 }}</td>
+            <td class="amount-cell {% if month.net >= 0 %}net-positive{% else %}net-negative{% endif %}">
+                ₱{{ month.net|floatformat:2 }}
+            </td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row">
+            <td><strong>Annual Totals</strong></td>
+            <td class="amount-cell income-value">₱{{ total_income|floatformat:2 }}</td>
+            <td class="amount-cell expense-value">₱{{ total_expense|floatformat:2 }}</td>
+            <td class="amount-cell {% if net_balance >= 0 %}net-positive{% else %}net-negative{% endif %}">
+                ₱{{ net_balance|floatformat:2 }}
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- Best/Worst Months -->
+{% if best_month or worst_month %}
+<div class="summary-section" style="margin-top: 30px;">
+    <div class="summary-title">Performance Highlights</div>
+    <div class="summary-grid">
+        {% if best_month %}
+        <div class="summary-box">
+            <div class="summary-label">Best Month (Income)</div>
+            <div class="summary-value income-value">{{ best_month.name }}</div>
+            <div style="font-size: 10pt; color: #27ae60; margin-top: 5px;">₱{{ best_month.amount|floatformat:2 }}</div>
+        </div>
+        {% endif %}
+        {% if worst_month %}
+        <div class="summary-box">
+            <div class="summary-label">Highest Expense</div>
+            <div class="summary-value expense-value">{{ worst_month.name }}</div>
+            <div style="font-size: 10pt; color: #e74c3c; margin-top: 5px;">₱{{ worst_month.amount|floatformat:2 }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Income by Category (Annual) -->
+<div class="page-break"></div>
+<div class="section-header">Annual Income by Category</div>
+{% if income_by_category %}
+<table>
+    <thead>
+        <tr>
+            <th>Category</th>
+            <th class="amount-cell">Total Amount</th>
+            <th class="amount-cell">% of Income</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cat in income_by_category %}
+        <tr>
+            <td>{{ cat.category_name }}</td>
+            <td class="amount-cell">₱{{ cat.total_amount|floatformat:2 }}</td>
+            <td class="amount-cell">{{ cat.percentage|floatformat:1 }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #666; margin: 15px 0;">No income recorded this year.</p>
+{% endif %}
+
+<!-- Expense by Category (Annual) -->
+<div class="section-header">Annual Expenses by Category</div>
+{% if expense_by_category %}
+<table>
+    <thead>
+        <tr>
+            <th>Category</th>
+            <th class="amount-cell">Total Amount</th>
+            <th class="amount-cell">% of Expenses</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cat in expense_by_category %}
+        <tr>
+            <td>{{ cat.category_name }}</td>
+            <td class="amount-cell">₱{{ cat.total_amount|floatformat:2 }}</td>
+            <td class="amount-cell">{{ cat.percentage|floatformat:1 }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #666; margin: 15px 0;">No expenses recorded this year.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "ledger/reports/base.html" %}
+
+{% block content %}
+<div class="summary-section">
+    <div class="summary-title">Daily Summary</div>
+    <div class="summary-grid">
+        <div class="summary-box">
+            <div class="summary-label">Total Income</div>
+            <div class="summary-value income-value">₱{{ total_income|floatformat:2 }}</div>
+        </div>
+        <div class="summary-box">
+            <div class="summary-label">Total Expense</div>
+            <div class="summary-value expense-value">₱{{ total_expense|floatformat:2 }}</div>
+        </div>
+        <div class="summary-box">
+            <div class="summary-label">Net Balance</div>
+            <div class="summary-value {% if net_balance >= 0 %}net-positive{% else %}net-negative{% endif %}">
+                ₱{{ net_balance|floatformat:2 }}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if income_transactions %}
+<div class="section-header">Income Transactions</div>
+<table>
+    <thead>
+        <tr>
+            <th>Reference</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Payer</th>
+            <th class="amount-cell">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for txn in income_transactions %}
+        <tr class="income-row">
+            <td>{{ txn.reference_number|default:"-" }}</td>
+            <td>{{ txn.category }}</td>
+            <td>{{ txn.description|truncatechars:50 }}</td>
+            <td>{{ txn.payer_name|default:"-" }}</td>
+            <td class="amount-cell">₱{{ txn.net_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row">
+            <td colspan="4"><strong>Total Income</strong></td>
+            <td class="amount-cell income-value">₱{{ total_income|floatformat:2 }}</td>
+        </tr>
+    </tbody>
+</table>
+{% else %}
+<p style="color: #666; margin: 20px 0;">No income transactions for this day.</p>
+{% endif %}
+
+{% if expense_transactions %}
+<div class="section-header">Expense Transactions</div>
+<table>
+    <thead>
+        <tr>
+            <th>Reference</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th class="amount-cell">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for txn in expense_transactions %}
+        <tr class="expense-row">
+            <td>{{ txn.reference_number|default:"-" }}</td>
+            <td>{{ txn.category }}</td>
+            <td>{{ txn.description|truncatechars:60 }}</td>
+            <td class="amount-cell">₱{{ txn.net_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row">
+            <td colspan="3"><strong>Total Expenses</strong></td>
+            <td class="amount-cell expense-value">₱{{ total_expense|floatformat:2 }}</td>
+        </tr>
+    </tbody>
+</table>
+{% else %}
+<p style="color: #666; margin: 20px 0;">No expense transactions for this day.</p>
+{% endif %}
+{% endblock %}

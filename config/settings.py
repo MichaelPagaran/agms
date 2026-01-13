@@ -26,6 +26,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Third-party
+    'storages',
     # Core Apps
     'apps.organizations',
     'apps.identity',
@@ -125,3 +127,11 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# File Storage Configuration (S3 or Local)
+from config.storage import get_storage_settings, USE_S3
+_storage_settings = get_storage_settings(BASE_DIR)
+globals().update(_storage_settings)
+
+# Export USE_S3 for services to check
+USE_S3_STORAGE = USE_S3
