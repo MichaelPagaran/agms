@@ -65,7 +65,7 @@ class TransactionAPITest(TestCase):
         self.transaction = Transaction.objects.create(
             org_id=self.org_id,
             transaction_type=TransactionType.INCOME,
-            status=TransactionStatus.DRAFT,
+            status=TransactionStatus.POSTED,
             gross_amount=Decimal('1000.00'),
             net_amount=Decimal('1000.00'),
             amount=Decimal('1000.00'),
@@ -119,27 +119,27 @@ class TransactionAPITest(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['transaction_type'], 'EXPENSE')
-        self.assertEqual(data['status'], 'DRAFT')
+        self.assertEqual(data['status'], 'POSTED')
 
 
-class ApprovalWorkflowAPITest(TestCase):
-    """Test approval workflow API endpoints."""
+class VerificationWorkflowAPITest(TestCase):
+    """Test verification workflow API endpoints."""
     
     def setUp(self):
         """Set up test data."""
         self.client = Client()
         self.org_id = uuid4()
         
-        # Create admin user (can approve)
+        # Create admin user (can verify)
         self.admin_user = User.objects.create_user(
-            username='approver',
-            email='approver@test.com',
+            username='verifier',
+            email='verifier@test.com',
             password='testpass123',
             org_id=self.org_id,
             role=UserRole.ADMIN,
         )
         
-        # Create staff user (can create, cannot approve)
+        # Create staff user (can create, cannot verify)
         self.staff_user = User.objects.create_user(
             username='creator',
             email='creator@test.com',
@@ -148,59 +148,44 @@ class ApprovalWorkflowAPITest(TestCase):
             role=UserRole.STAFF,
         )
         
-        # Create a draft transaction
+        # Create a posted transaction
         self.transaction = Transaction.objects.create(
             org_id=self.org_id,
             transaction_type=TransactionType.INCOME,
-            status=TransactionStatus.DRAFT,
+            status=TransactionStatus.POSTED,
             gross_amount=Decimal('1000.00'),
             net_amount=Decimal('1000.00'),
             amount=Decimal('1000.00'),
             category='Monthly Dues',
             transaction_date=date.today(),
+            is_verified=False,
         )
     
-    def test_submit_transaction_for_approval(self):
-        """Test staff can submit transaction for approval."""
-        self.client.force_login(self.staff_user)
-        
-        response = self.client.post(
-            f'/api/ledger/transactions/{self.transaction.id}/submit'
-        )
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['status'], 'PENDING')
-        
-        # Verify in database
-        self.transaction.refresh_from_db()
-        self.assertEqual(self.transaction.status, TransactionStatus.PENDING)
-    
-    def test_approve_transaction_as_admin(self):
-        """Test admin can approve transactions."""
-        # First submit the transaction
-        self.transaction.status = TransactionStatus.PENDING
-        self.transaction.save()
-        
+    def test_verify_transaction_as_admin(self):
+        """Test admin can verify transactions."""
         self.client.force_login(self.admin_user)
         
         response = self.client.post(
-            f'/api/ledger/transactions/{self.transaction.id}/approve'
+            f'/api/ledger/transactions/{self.transaction.id}/verify'
         )
         
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data['transaction']['status'], 'APPROVED')
-    
-    def test_staff_cannot_approve(self):
-        """Test staff cannot approve transactions."""
-        self.transaction.status = TransactionStatus.PENDING
-        self.transaction.save()
+        self.assertTrue(data['transaction']['is_verified'])
+        self.assertEqual(data['message'], "Transaction verified")
         
+        # Verify in database
+        self.transaction.refresh_from_db()
+        self.assertTrue(self.transaction.is_verified)
+        self.assertIsNotNone(self.transaction.verified_by_id)
+        self.assertIsNotNone(self.transaction.verified_at)
+    
+    def test_staff_cannot_verify(self):
+        """Test staff cannot verify transactions."""
         self.client.force_login(self.staff_user)
         
         response = self.client.post(
-            f'/api/ledger/transactions/{self.transaction.id}/approve'
+            f'/api/ledger/transactions/{self.transaction.id}/verify'
         )
         
         # Should be forbidden
@@ -227,7 +212,7 @@ class AnalyticsAPITest(TestCase):
         Transaction.objects.create(
             org_id=self.org_id,
             transaction_type=TransactionType.INCOME,
-            status=TransactionStatus.APPROVED,
+            status=TransactionStatus.POSTED,
             gross_amount=Decimal('5000.00'),
             net_amount=Decimal('5000.00'),
             amount=Decimal('5000.00'),
@@ -238,7 +223,7 @@ class AnalyticsAPITest(TestCase):
         Transaction.objects.create(
             org_id=self.org_id,
             transaction_type=TransactionType.EXPENSE,
-            status=TransactionStatus.APPROVED,
+            status=TransactionStatus.POSTED,
             gross_amount=Decimal('2000.00'),
             net_amount=Decimal('2000.00'),
             amount=Decimal('2000.00'),

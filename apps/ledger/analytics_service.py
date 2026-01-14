@@ -34,7 +34,7 @@ def get_income_summary(
     queryset = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.INCOME,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
         transaction_date__lte=today,
     )
@@ -73,7 +73,7 @@ def get_expense_summary(
     queryset = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.EXPENSE,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
         transaction_date__lte=today,
     )
@@ -132,7 +132,7 @@ def get_expense_by_category(
     queryset = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.EXPENSE,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
         transaction_date__lte=end_date,
     ).values('category_id', 'category').annotate(
@@ -176,7 +176,7 @@ def get_income_by_category(
     queryset = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.INCOME,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
         transaction_date__lte=end_date,
     ).values('category_id', 'category').annotate(
@@ -223,7 +223,7 @@ def get_monthly_trends(
     income_by_month = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.INCOME,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
     ).annotate(
         month=TruncMonth('transaction_date')
@@ -235,7 +235,7 @@ def get_monthly_trends(
     expense_by_month = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.EXPENSE,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
     ).annotate(
         month=TruncMonth('transaction_date')
@@ -289,7 +289,7 @@ def get_best_worst_months(
     income_by_month = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.INCOME,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
         transaction_date__lte=end_date,
     ).annotate(
@@ -301,7 +301,7 @@ def get_best_worst_months(
     expense_by_month = Transaction.objects.filter(
         org_id=org_id,
         transaction_type=TransactionType.EXPENSE,
-        status=TransactionStatus.APPROVED,
+        status=TransactionStatus.POSTED,
         transaction_date__gte=start_date,
         transaction_date__lte=end_date,
     ).annotate(

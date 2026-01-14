@@ -16,7 +16,9 @@ class TransactionDTO:
     amount: Decimal
     net_amount: Decimal
     category: str
+    category: str
     transaction_date: date
+    is_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -39,9 +41,10 @@ class TransactionDetailDTO:
     requires_receipt: bool
     receipt_verified: bool
     created_by_id: Optional[UUID]
-    approved_by_id: Optional[UUID]
-    approved_at: Optional[datetime]
+    verified_by_id: Optional[UUID]
+    verified_at: Optional[datetime]
     created_at: datetime
+    is_verified: bool = False
 
 
 @dataclass(frozen=True)

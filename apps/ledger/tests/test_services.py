@@ -2,7 +2,7 @@
 Unit tests for ledger services.
 Tests core business logic including validation, penalty calculation, and credit management.
 """
-import pytest
+
 from decimal import Decimal
 from datetime import date, timedelta
 from uuid import uuid4

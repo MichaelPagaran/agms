@@ -11,8 +11,8 @@ class TransactionType(models.TextChoices):
 class TransactionStatus(models.TextChoices):
     """Transaction approval workflow states."""
     DRAFT = 'DRAFT', 'Draft'
-    PENDING = 'PENDING', 'Pending Approval'
-    APPROVED = 'APPROVED', 'Approved'
+    PENDING = 'PENDING', 'Pending Verification'
+    POSTED = 'POSTED', 'Posted'
     CANCELLED = 'CANCELLED', 'Cancelled'
 
 
@@ -99,7 +99,7 @@ class Transaction(models.Model):
     status = models.CharField(
         max_length=20,
         choices=TransactionStatus.choices,
-        default=TransactionStatus.DRAFT
+        default=TransactionStatus.POSTED
     )
     
     # Payment type - critical for amount validation
@@ -140,13 +140,16 @@ class Transaction(models.Model):
     requires_receipt = models.BooleanField(default=False)
     receipt_verified = models.BooleanField(default=False)
     
+    # Verification (Audit)
+    is_verified = models.BooleanField(default=False, help_text="Checked and verified by board/admin")
+    verified_by_id = models.UUIDField(null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    
     # Dates
     transaction_date = models.DateField()
     
     # Audit fields
     created_by_id = models.UUIDField(null=True, blank=True)  # User reference
-    approved_by_id = models.UUIDField(null=True, blank=True)  # User who approved
-    approved_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -358,38 +361,37 @@ class PenaltyPolicy(models.Model):
             return principal * rate * months_overdue
 
 
-class PenaltyConfig(models.Model):
+class BillingConfig(models.Model):
     """
-    Legacy penalty configuration model.
-    Kept for backward compatibility - new implementations should use PenaltyPolicy.
+    Organization billing configuration.
+    Defines monthly dues amount, billing day, and grace period.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    org_id = models.UUIDField(db_index=True)
+    org_id = models.UUIDField(unique=True, db_index=True)
     
-    monthly_due_rate = models.DecimalField(
-        max_digits=10, decimal_places=2,
-        help_text="Monthly dues amount (flat) or rate per sqm"
+    monthly_dues_amount = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        help_text="Base monthly dues amount per unit"
     )
-    due_day = models.PositiveSmallIntegerField(default=5, help_text="Day of month dues are due")
-    grace_period_days = models.PositiveSmallIntegerField(default=15)
-    late_penalty_type = models.CharField(
-        max_length=20,
-        choices=[('FLAT', 'Flat Fee'), ('PERCENT', 'Percentage')],
-        default='PERCENT'
+    billing_day = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Day of month to generate statements (1-28)"
     )
-    late_penalty_rate = models.DecimalField(
-        max_digits=5, decimal_places=2,
-        default=Decimal('2.00'),
-        help_text="Penalty rate (e.g., 2.00 for 2%)"
+    grace_period_days = models.PositiveSmallIntegerField(
+        default=15,
+        help_text="Days after due date before penalties apply"
     )
+    
     is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Penalty Configuration (Legacy)"
-        verbose_name_plural = "Penalty Configurations (Legacy)"
+        verbose_name = "Billing Configuration"
+        verbose_name_plural = "Billing Configurations"
 
     def __str__(self):
-        return f"Penalty Config - Org {self.org_id}"
+        return f"Billing Config - ₱{self.monthly_dues_amount}/month (Day {self.billing_day})"
 
 
 class DuesStatement(models.Model):

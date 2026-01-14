@@ -13,14 +13,14 @@ from django.conf import settings
 
 from apps.identity.permissions import Permissions, get_user_permissions
 from .schemas import (
-    IncomeIn, ExpenseIn, TransactionUpdateIn, TransactionApprovalIn,
+    IncomeIn, ExpenseIn, TransactionUpdateIn, TransactionVerificationIn,
     BulkPaymentIn, PreviewBreakdownIn, CategoryIn, DiscountConfigIn,
     PenaltyPolicyIn, TransactionFilterIn, ReportFilterIn,
     TransactionOut, TransactionDetailOut, TransactionBreakdownOut,
     CategoryOut, DiscountConfigOut, PenaltyPolicyOut, AttachmentOut,
     CreditBalanceOut, CreditTransactionOut, FinancialSummaryOut,
     CategoryBreakdownOut, MonthlyTrendOut, ProfitLossOut,
-    DuesStatementOut, IncomeResultOut, ApprovalResultOut,
+    DuesStatementOut, IncomeResultOut, VerificationResultOut,
     ErrorOut, SuccessOut, AdjustmentOut, DiscountPreviewOut, PenaltyPreviewOut,
 )
 from .models import (
@@ -98,6 +98,7 @@ def create_income(request: HttpRequest, payload: IncomeIn):
                 net_amount=transaction_dto.net_amount,
                 category=transaction_dto.category,
                 transaction_date=transaction_dto.transaction_date,
+                is_verified=transaction_dto.is_verified,
             ),
             credit_added=credit_added,
         )
@@ -133,6 +134,7 @@ def create_expense(request: HttpRequest, payload: ExpenseIn):
             net_amount=transaction_dto.net_amount,
             category=transaction_dto.category,
             transaction_date=transaction_dto.transaction_date,
+            is_verified=transaction_dto.is_verified,
         )
     except ValueError as e:
         raise HttpError(400, str(e))
@@ -229,6 +231,7 @@ def list_transactions(
             net_amount=t.net_amount,
             category=t.category,
             transaction_date=t.transaction_date,
+            is_verified=t.is_verified,
         )
         for t in transactions
     ]
@@ -266,9 +269,10 @@ def get_transaction(request: HttpRequest, transaction_id: UUID):
         requires_receipt=transaction_dto.requires_receipt,
         receipt_verified=transaction_dto.receipt_verified,
         created_by_id=transaction_dto.created_by_id,
-        approved_by_id=transaction_dto.approved_by_id,
-        approved_at=transaction_dto.approved_at,
+        verified_by_id=transaction_dto.verified_by_id,
+        verified_at=transaction_dto.verified_at,
         created_at=transaction_dto.created_at,
+        is_verified=transaction_dto.is_verified,
     )
 
 
@@ -276,41 +280,17 @@ def get_transaction(request: HttpRequest, transaction_id: UUID):
 # Approval Workflow Endpoints
 # =============================================================================
 
-@router.post("/transactions/{transaction_id}/submit", response=TransactionOut, auth=None)
-def submit_transaction(request: HttpRequest, transaction_id: UUID):
-    """Submit a draft transaction for approval."""
-    require_permission(request, Permissions.LEDGER_CREATE_INCOME)
-    
-    try:
-        transaction_dto = services.submit_for_approval(
-            transaction_id=transaction_id,
-            submitted_by_id=request.user.id,
-        )
-        return TransactionOut(
-            id=transaction_dto.id,
-            org_id=transaction_dto.org_id,
-            transaction_type=transaction_dto.transaction_type,
-            status=transaction_dto.status,
-            amount=transaction_dto.amount,
-            net_amount=transaction_dto.net_amount,
-            category=transaction_dto.category,
-            transaction_date=transaction_dto.transaction_date,
-        )
-    except ValueError as e:
-        raise HttpError(400, str(e))
-
-
-@router.post("/transactions/{transaction_id}/approve", response=ApprovalResultOut, auth=None)
-def approve_transaction(request: HttpRequest, transaction_id: UUID):
-    """Approve a pending transaction."""
+@router.post("/transactions/{transaction_id}/verify", response=VerificationResultOut, auth=None)
+def verify_transaction(request: HttpRequest, transaction_id: UUID):
+    """Verify a posted transaction."""
     require_permission(request, Permissions.LEDGER_APPROVE_EXPENSE)
     
     try:
-        transaction_dto, credit_added = services.approve_transaction(
+        transaction_dto = services.verify_transaction(
             transaction_id=transaction_id,
-            approved_by_id=request.user.id,
+            verified_by_id=request.user.id,
         )
-        return ApprovalResultOut(
+        return VerificationResultOut(
             transaction=TransactionOut(
                 id=transaction_dto.id,
                 org_id=transaction_dto.org_id,
@@ -320,41 +300,19 @@ def approve_transaction(request: HttpRequest, transaction_id: UUID):
                 net_amount=transaction_dto.net_amount,
                 category=transaction_dto.category,
                 transaction_date=transaction_dto.transaction_date,
+                is_verified=transaction_dto.is_verified,
             ),
-            credit_added=credit_added,
-            message="Transaction approved" + (f", ₱{credit_added} added to unit credit" if credit_added else ""),
+            message="Transaction verified",
         )
     except ValueError as e:
         raise HttpError(400, str(e))
 
 
-@router.post("/transactions/{transaction_id}/reject", response=TransactionOut, auth=None)
-def reject_transaction(request: HttpRequest, transaction_id: UUID, payload: TransactionApprovalIn):
-    """Reject a pending transaction (returns to draft)."""
-    require_permission(request, Permissions.LEDGER_APPROVE_EXPENSE)
-    
-    try:
-        transaction_dto = services.reject_transaction(
-            transaction_id=transaction_id,
-            rejected_by_id=request.user.id,
-            reason=payload.comment or "",
-        )
-        return TransactionOut(
-            id=transaction_dto.id,
-            org_id=transaction_dto.org_id,
-            transaction_type=transaction_dto.transaction_type,
-            status=transaction_dto.status,
-            amount=transaction_dto.amount,
-            net_amount=transaction_dto.net_amount,
-            category=transaction_dto.category,
-            transaction_date=transaction_dto.transaction_date,
-        )
-    except ValueError as e:
-        raise HttpError(400, str(e))
+
 
 
 @router.post("/transactions/{transaction_id}/cancel", response=TransactionOut, auth=None)
-def cancel_transaction(request: HttpRequest, transaction_id: UUID, payload: TransactionApprovalIn):
+def cancel_transaction(request: HttpRequest, transaction_id: UUID, payload: TransactionVerificationIn):
     """Cancel a transaction."""
     require_permission(request, Permissions.LEDGER_CANCEL_TRANSACTION)
     
@@ -373,6 +331,7 @@ def cancel_transaction(request: HttpRequest, transaction_id: UUID, payload: Tran
             net_amount=transaction_dto.net_amount,
             category=transaction_dto.category,
             transaction_date=transaction_dto.transaction_date,
+            is_verified=transaction_dto.is_verified,
         )
     except ValueError as e:
         raise HttpError(400, str(e))
@@ -757,6 +716,83 @@ def create_penalty_policy(request: HttpRequest, payload: PenaltyPolicyIn):
         rate_value=policy.rate_value,
         grace_period_days=policy.grace_period_days,
         is_active=policy.is_active,
+    )
+
+
+# =============================================================================
+# Billing Configuration Endpoints
+# =============================================================================
+
+@router.get("/billing/config", auth=None)
+def get_billing_config(request: HttpRequest):
+    """Get billing configuration for the organization."""
+    from .schemas import BillingConfigOut
+    from .models import BillingConfig
+    
+    require_permission(request, Permissions.LEDGER_VIEW_REPORT)
+    org_id = get_org_id(request)
+    
+    config = BillingConfig.objects.filter(org_id=org_id).first()
+    if not config:
+        raise HttpError(404, "Billing configuration not found")
+    
+    return BillingConfigOut(
+        id=config.id,
+        org_id=config.org_id,
+        monthly_dues_amount=config.monthly_dues_amount,
+        billing_day=config.billing_day,
+        grace_period_days=config.grace_period_days,
+        is_active=config.is_active,
+    )
+
+
+@router.post("/billing/config", auth=None)
+def create_or_update_billing_config(request: HttpRequest):
+    """Create or update billing configuration."""
+    from .schemas import BillingConfigIn, BillingConfigOut
+    from .models import BillingConfig
+    from ninja import Body
+    
+    require_permission(request, Permissions.LEDGER_MANAGE_CONFIG)
+    org_id = get_org_id(request)
+    
+    import json
+    data = json.loads(request.body)
+    
+    config, created = BillingConfig.objects.update_or_create(
+        org_id=org_id,
+        defaults={
+            'monthly_dues_amount': data.get('monthly_dues_amount'),
+            'billing_day': data.get('billing_day', 1),
+            'grace_period_days': data.get('grace_period_days', 15),
+            'is_active': True,
+        }
+    )
+    
+    return BillingConfigOut(
+        id=config.id,
+        org_id=config.org_id,
+        monthly_dues_amount=config.monthly_dues_amount,
+        billing_day=config.billing_day,
+        grace_period_days=config.grace_period_days,
+        is_active=config.is_active,
+    )
+
+
+@router.post("/billing/generate", auth=None)
+def trigger_billing_generation(request: HttpRequest):
+    """Manually trigger billing generation for the organization."""
+    from .schemas import GenerateBillingResultOut
+    from . import billing_service
+    
+    require_permission(request, Permissions.LEDGER_MANAGE_CONFIG)
+    org_id = get_org_id(request)
+    
+    statements = billing_service.generate_monthly_statements(org_id)
+    
+    return GenerateBillingResultOut(
+        org_id=org_id,
+        statements_created=len(statements),
     )
 
 

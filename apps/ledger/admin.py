@@ -6,7 +6,7 @@ from .models import (
     TransactionAdjustment,
     DiscountConfig,
     PenaltyPolicy,
-    PenaltyConfig,
+    BillingConfig,
     DuesStatement,
     UnitCredit,
     CreditTransaction,
@@ -26,7 +26,7 @@ class TransactionAdmin(admin.ModelAdmin):
     list_filter = ['transaction_type', 'status', 'payment_type', 'transaction_date']
     search_fields = ['description', 'payer_name', 'reference_number']
     date_hierarchy = 'transaction_date'
-    readonly_fields = ['created_at', 'updated_at', 'approved_at']
+    readonly_fields = ['created_at', 'updated_at', 'verified_at']
 
 
 @admin.register(TransactionAttachment)
@@ -58,10 +58,11 @@ class PenaltyPolicyAdmin(admin.ModelAdmin):
     search_fields = ['name', 'description']
 
 
-@admin.register(PenaltyConfig)
-class PenaltyConfigAdmin(admin.ModelAdmin):
-    list_display = ['org_id', 'monthly_due_rate', 'due_day', 'late_penalty_rate', 'is_active']
+@admin.register(BillingConfig)
+class BillingConfigAdmin(admin.ModelAdmin):
+    list_display = ['org_id', 'monthly_dues_amount', 'billing_day', 'grace_period_days', 'is_active']
     list_filter = ['is_active']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(DuesStatement)

@@ -70,9 +70,9 @@ class TransactionUpdateIn(Schema):
     transaction_date: Optional[date] = None
 
 
-class TransactionApprovalIn(Schema):
-    """Schema for approval workflow actions."""
-    action: str  # 'submit', 'approve', 'reject', 'cancel'
+class TransactionVerificationIn(Schema):
+    """Schema for verification workflow actions."""
+    action: str  # 'verify', 'cancel'
     comment: Optional[str] = None
 
 
@@ -126,6 +126,29 @@ class PenaltyPolicyIn(Schema):
     applicable_categories: Optional[List[UUID]] = None
 
 
+class BillingConfigIn(Schema):
+    """Schema for creating/updating billing configuration."""
+    monthly_dues_amount: Decimal
+    billing_day: int = 1
+    grace_period_days: int = 15
+
+
+class BillingConfigOut(Schema):
+    """Billing configuration output."""
+    id: UUID
+    org_id: UUID
+    monthly_dues_amount: Decimal
+    billing_day: int
+    grace_period_days: int
+    is_active: bool
+
+
+class GenerateBillingResultOut(Schema):
+    """Result of manual billing generation."""
+    org_id: UUID
+    statements_created: int
+
+
 class TransactionFilterIn(Schema):
     """Schema for filtering transactions."""
     start_date: Optional[date] = None
@@ -157,6 +180,7 @@ class TransactionOut(Schema):
     net_amount: Decimal
     category: str
     transaction_date: date
+    is_verified: bool = False
 
 
 class TransactionDetailOut(Schema):
@@ -178,9 +202,10 @@ class TransactionDetailOut(Schema):
     requires_receipt: bool
     receipt_verified: bool
     created_by_id: Optional[UUID]
-    approved_by_id: Optional[UUID]
-    approved_at: Optional[datetime]
+    verified_by_id: Optional[UUID]
+    verified_at: Optional[datetime]
     created_at: datetime
+    is_verified: bool = False
 
 
 class AdjustmentOut(Schema):
@@ -340,10 +365,9 @@ class IncomeResultOut(Schema):
     credit_added: Optional[Decimal] = None
 
 
-class ApprovalResultOut(Schema):
-    """Result of approval action."""
+class VerificationResultOut(Schema):
+    """Result of verification action."""
     transaction: TransactionOut
-    credit_added: Optional[Decimal] = None
     message: str
 
 

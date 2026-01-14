@@ -40,6 +40,7 @@ def get_transaction_dto(transaction_id: UUID) -> Optional[TransactionDTO]:
             net_amount=txn.net_amount,
             category=txn.category,
             transaction_date=txn.transaction_date,
+            is_verified=txn.is_verified,
         )
     except Transaction.DoesNotExist:
         return None
@@ -67,9 +68,10 @@ def get_transaction_detail_dto(transaction_id: UUID) -> Optional[TransactionDeta
             requires_receipt=txn.requires_receipt,
             receipt_verified=txn.receipt_verified,
             created_by_id=txn.created_by_id,
-            approved_by_id=txn.approved_by_id,
-            approved_at=txn.approved_at,
+            verified_by_id=txn.verified_by_id,
+            verified_at=txn.verified_at,
             created_at=txn.created_at,
+            is_verified=txn.is_verified,
         )
     except Transaction.DoesNotExist:
         return None
@@ -597,7 +599,7 @@ def record_expense(
         asset_id=asset_id,
         category_id=category_id,
         transaction_type=TransactionType.EXPENSE,
-        status=TransactionStatus.DRAFT,
+        status=TransactionStatus.POSTED,
         payment_type=PaymentType.EXACT,
         gross_amount=amount,
         net_amount=amount,
@@ -617,6 +619,7 @@ def record_expense(
         net_amount=transaction.net_amount,
         category=transaction.category,
         transaction_date=transaction.transaction_date,
+        is_verified=transaction.is_verified,
     )
 
 
@@ -663,7 +666,7 @@ def record_income(
         unit_id=unit_id,
         category_id=category_id,
         transaction_type=TransactionType.INCOME,
-        status=TransactionStatus.DRAFT,
+        status=TransactionStatus.POSTED,
         payment_type=payment_type,
         gross_amount=breakdown.gross_amount,
         net_amount=breakdown.net_amount,
@@ -696,8 +699,32 @@ def record_income(
         net_amount=transaction.net_amount,
         category=transaction.category,
         transaction_date=transaction.transaction_date,
+        is_verified=transaction.is_verified,
     )
     
+    # Handle advance payment credit immediately
+    if (transaction.transaction_type == TransactionType.INCOME and 
+        transaction.payment_type == PaymentType.ADVANCE and
+        transaction.unit_id and breakdown.credit_to_add):
+        
+        add_credit(
+            org_id=transaction.org_id,
+            unit_id=transaction.unit_id,
+            amount=breakdown.credit_to_add,
+            transaction_id=transaction.id,
+            description=f"Advance payment credit from transaction {transaction.id}",
+            created_by_id=created_by_id,
+        )
+        
+        # Mark dues as paid
+        current_dues = get_current_dues_for_unit(transaction.org_id, transaction.unit_id)
+        if current_dues:
+            current_dues.status = DuesStatementStatus.PAID
+            current_dues.amount_paid = current_dues.net_amount
+            current_dues.paid_date = transaction.transaction_date
+            current_dues.payment_transaction_id = transaction.id
+            current_dues.save()
+            
     return dto, breakdown.credit_to_add
 
 
@@ -745,6 +772,7 @@ def list_transactions(
             net_amount=txn.net_amount,
             category=txn.category,
             transaction_date=txn.transaction_date,
+            is_verified=txn.is_verified,
         )
         for txn in transactions
     ]
@@ -754,102 +782,32 @@ def list_transactions(
 # Approval Workflow
 # =============================================================================
 
-def submit_for_approval(
+
+    
+def verify_transaction(
     transaction_id: UUID,
-    submitted_by_id: UUID,
+    verified_by_id: UUID,
 ) -> TransactionDTO:
-    """Submit a draft transaction for approval."""
-    try:
-        transaction = Transaction.objects.get(id=transaction_id)
-    except Transaction.DoesNotExist:
-        raise ValueError("Transaction not found")
-    
-    if transaction.status != TransactionStatus.DRAFT:
-        raise ValueError(f"Cannot submit transaction with status: {transaction.status}")
-    
-    transaction.status = TransactionStatus.PENDING
-    transaction.save()
-    
-    return get_transaction_dto(transaction_id)
-
-
-def approve_transaction(
-    transaction_id: UUID,
-    approved_by_id: UUID,
-    unit_id: Optional[UUID] = None,
-) -> Tuple[TransactionDTO, Optional[Decimal]]:
     """
-    Approve a pending transaction.
-    If it's an advance payment, add credit to the unit.
-    
-    Returns:
-        Tuple of (TransactionDTO, credit_added)
+    Verify a transaction (mark as checked).
     """
     try:
         transaction = Transaction.objects.get(id=transaction_id)
     except Transaction.DoesNotExist:
         raise ValueError("Transaction not found")
     
-    if transaction.status != TransactionStatus.PENDING:
-        raise ValueError(f"Cannot approve transaction with status: {transaction.status}")
-    
-    transaction.status = TransactionStatus.APPROVED
-    transaction.approved_by_id = approved_by_id
-    transaction.approved_at = timezone.now()
-    transaction.save()
-    
-    credit_added = None
-    
-    # Handle advance payment credit
-    if (transaction.transaction_type == TransactionType.INCOME and 
-        transaction.payment_type == PaymentType.ADVANCE and
-        transaction.unit_id):
-        
-        # Calculate credit to add
-        current_dues = get_current_dues_for_unit(transaction.org_id, transaction.unit_id)
-        if current_dues:
-            total_due = current_dues.net_amount - current_dues.amount_paid
-            if transaction.net_amount > total_due:
-                credit_added = transaction.net_amount - total_due
-                add_credit(
-                    org_id=transaction.org_id,
-                    unit_id=transaction.unit_id,
-                    amount=credit_added,
-                    transaction_id=transaction.id,
-                    description=f"Advance payment credit from transaction {transaction.id}",
-                    created_by_id=approved_by_id,
-                )
-                
-                # Mark dues as paid
-                current_dues.status = DuesStatementStatus.PAID
-                current_dues.amount_paid = current_dues.net_amount
-                current_dues.paid_date = transaction.transaction_date
-                current_dues.payment_transaction_id = transaction.id
-                current_dues.save()
-    
-    return get_transaction_dto(transaction_id), credit_added
+    if transaction.status == TransactionStatus.CANCELLED:
+        raise ValueError("Cannot verify cancelled transaction")
 
-
-def reject_transaction(
-    transaction_id: UUID,
-    rejected_by_id: UUID,
-    reason: str = "",
-) -> TransactionDTO:
-    """Reject a pending transaction (returns to draft)."""
-    try:
-        transaction = Transaction.objects.get(id=transaction_id)
-    except Transaction.DoesNotExist:
-        raise ValueError("Transaction not found")
-    
-    if transaction.status != TransactionStatus.PENDING:
-        raise ValueError(f"Cannot reject transaction with status: {transaction.status}")
-    
-    transaction.status = TransactionStatus.DRAFT
-    if reason:
-        transaction.description = f"{transaction.description}\n[REJECTED: {reason}]"
+    transaction.is_verified = True
+    transaction.verified_by_id = verified_by_id
+    transaction.verified_at = timezone.now()
     transaction.save()
     
     return get_transaction_dto(transaction_id)
+
+
+
 
 
 def cancel_transaction(
