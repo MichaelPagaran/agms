@@ -31,6 +31,18 @@ class Permissions:
     
     # Organizations
     ORGANIZATION_MANAGE = "organization.manage"
+    
+    # Assets - New (Asset Manager Feature)
+    ASSET_VIEW = "asset.view"
+    ASSET_MANAGE = "asset.manage"
+    ASSET_VIEW_ANALYTICS = "asset.view_analytics"
+    
+    # Reservations - New (Asset Manager Feature)
+    RESERVATION_CREATE = "reservation.create"
+    RESERVATION_VIEW = "reservation.view"
+    RESERVATION_VIEW_ALL = "reservation.view_all"
+    RESERVATION_APPROVE = "reservation.approve"
+    RESERVATION_CANCEL = "reservation.cancel"
 
 
 # Static Role -> Permission Mapping
@@ -58,6 +70,16 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         Permissions.REGISTRY_MANAGE_UNIT,
         # Organizations
         Permissions.ORGANIZATION_MANAGE,
+        # Assets - Full access
+        Permissions.ASSET_VIEW,
+        Permissions.ASSET_MANAGE,
+        Permissions.ASSET_VIEW_ANALYTICS,
+        # Reservations - Full access
+        Permissions.RESERVATION_CREATE,
+        Permissions.RESERVATION_VIEW,
+        Permissions.RESERVATION_VIEW_ALL,
+        Permissions.RESERVATION_APPROVE,
+        Permissions.RESERVATION_CANCEL,
     ],
     UserRole.STAFF: [
         # Ledger - Can create but not approve or cancel
@@ -74,6 +96,16 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         # Registry
         Permissions.REGISTRY_VIEW_ALL_UNITS,
         Permissions.REGISTRY_MANAGE_UNIT,
+        # Assets - Can view and manage
+        Permissions.ASSET_VIEW,
+        Permissions.ASSET_MANAGE,
+        Permissions.ASSET_VIEW_ANALYTICS,
+        # Reservations - Can create, view all, approve, cancel
+        Permissions.RESERVATION_CREATE,
+        Permissions.RESERVATION_VIEW,
+        Permissions.RESERVATION_VIEW_ALL,
+        Permissions.RESERVATION_APPROVE,
+        Permissions.RESERVATION_CANCEL,
     ],
     UserRole.BOARD: [
         # Ledger - Can approve, cancel, and manage config
@@ -92,6 +124,16 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         # Registry
         Permissions.REGISTRY_VIEW_ALL_UNITS,
         Permissions.REGISTRY_MANAGE_UNIT,
+        # Assets - Can view and manage
+        Permissions.ASSET_VIEW,
+        Permissions.ASSET_MANAGE,
+        Permissions.ASSET_VIEW_ANALYTICS,
+        # Reservations - Can create, view all, approve, cancel
+        Permissions.RESERVATION_CREATE,
+        Permissions.RESERVATION_VIEW,
+        Permissions.RESERVATION_VIEW_ALL,
+        Permissions.RESERVATION_APPROVE,
+        Permissions.RESERVATION_CANCEL,
     ],
     UserRole.AUDITOR: [
         # Ledger - View only
@@ -102,12 +144,24 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         Permissions.GOVERNANCE_VIEW_DOCS,
         # Registry
         Permissions.REGISTRY_VIEW_ALL_UNITS,
+        # Assets - View only (including analytics)
+        Permissions.ASSET_VIEW,
+        Permissions.ASSET_VIEW_ANALYTICS,
+        # Reservations - View only
+        Permissions.RESERVATION_VIEW,
+        Permissions.RESERVATION_VIEW_ALL,
     ],
     UserRole.HOMEOWNER: [
         # Governance
         Permissions.GOVERNANCE_VIEW_DOCS,
         # Limited ledger access - can view own transactions only
         # This is enforced at the service level, not here
+        # Assets - View only
+        Permissions.ASSET_VIEW,
+        # Reservations - Can create and view own, cancel own
+        Permissions.RESERVATION_CREATE,
+        Permissions.RESERVATION_VIEW,  # Own only, enforced at service level
+        Permissions.RESERVATION_CANCEL,  # Own only, enforced at service level
     ],
 }
 
@@ -123,3 +177,4 @@ def get_user_permissions(user: User) -> List[str]:
     # but strictly following the map is safer for now.
     
     return ROLE_PERMISSIONS.get(user.role, [])
+

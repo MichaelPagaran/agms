@@ -17,6 +17,10 @@ app.conf.beat_schedule = {
         'task': 'apps.ledger.tasks.generate_monthly_dues',
         'schedule': crontab(day_of_month='1', hour='0', minute='0'),
     },
+    'expire-unpaid-reservations': {
+        'task': 'apps.assets.tasks.expire_unpaid_reservations',
+        'schedule': crontab(minute='*/30'),  # Every 30 minutes
+    },
 }
 
 
