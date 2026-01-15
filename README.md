@@ -7,7 +7,7 @@ A specialized, AI-enhanced Financial Management System for Philippine Homeowners
 - **Multi-tenancy**: Complete data isolation per organization
 - **Unit Registry**: Master list of Lots/Blocks or Units/Floors
 - **Financial Ledger**: Comprehensive income/expense tracking with approval workflow
-- **Asset Manager**: Profit/Loss tracking for facilities
+- **Asset Manager**: Reservation system and profit/loss tracking for facilities
 - **AI OCR Scanner**: Receipt scanning with Google Cloud Vision (Premium)
 - **Role-Based Access**: Admin, Staff, Board, Auditor, Homeowner roles
 
@@ -19,25 +19,58 @@ The Financial Ledger has been significantly enhanced with the following capabili
 
 #### Core Features
 - **Transaction CRUD**: Record income and expenses with category management
-- **Approval Workflow**: DRAFT → PENDING → APPROVED status flow
+- **Approval Workflow**: POSTED → VERIFIED status flow
 - **Amount Validation**: Prevents overcollection (exact match unless advance payment)
 - **Credit System**: Advance payments credited to unit accounts
+- **Attachments**: Receipt upload with S3-ready storage
 
 #### Calculations
 - **Simple Interest Penalties**: `I = P × R × T` (Principal × Rate × Time in months)
 - **Configurable Discounts**: Percentage or flat discounts with minimum month requirements
 - **Dues Statement Tracking**: Monthly dues per unit with penalty tracking
+- **Breakdown Preview**: See penalties, discounts, and net amount before submission
 
 #### Reporting & Analytics
 - **PDF Reports**: Daily, monthly, and yearly reports using WeasyPrint
 - **Financial Summaries**: MTD/YTD income, expense, and net balance
 - **Category Breakdowns**: Income and expense analysis by category
 - **Monthly Trends**: Income/expense trends over configurable periods
+- **Best/Worst Months**: Performance comparison across periods
 - **Profit/Loss Status**: Real-time profitability indicators
 
-#### Receipt Management
-- **S3-Ready Storage**: AWS S3 with local fallback for development
-- **File Validation**: JPEG, PNG, PDF (max 10MB)
+#### Configuration
+- **Billing Configuration**: Monthly dues amount, due dates, grace periods
+- **Penalty Policies**: Configurable rates, grace periods, and calculation methods
+- **Discount Configurations**: Validity dates, minimum months, percentage or flat
+
+### Asset Manager Feature Set (v2.1)
+
+Manage revenue-generating and shared infrastructure facilities:
+
+#### Core Features
+- **Asset CRUD**: Create, update, and soft-delete assets (Pool, Clubhouse, Function Hall, etc.)
+- **Reservation System**: Book assets with scheduling and availability checking
+- **Payment Workflow**: Homeowners get PENDING_PAYMENT status; staff confirms after payment
+- **Automatic Expiration**: Unpaid reservations expire after configurable time (default: 48 hours)
+- **Configurable Policies**: Per-organization settings for expiration, same-day booking, advance booking
+
+#### Pricing & Discounts
+- **Hourly Rates**: Configurable rental rates per asset
+- **Security Deposits**: Optional deposits with configurable amounts
+- **Discount Integration**: Apply existing discounts to reservations
+- **Payment Breakdown Preview**: See full breakdown before booking
+
+#### Analytics
+- **Income per Asset**: Current month income, expenses, and net profit
+- **Transaction History**: Drill-down to see rent and expense history per asset
+- **Reservation Count**: Track utilization per asset
+
+#### Reservation Status Flow
+```
+[HOMEOWNER creates] → PENDING_PAYMENT → [Staff records payment] → CONFIRMED → COMPLETED
+                                      ↓ (timeout)
+                                    EXPIRED
+```
 
 ## Tech Stack
 
@@ -101,10 +134,10 @@ Creates the following test users (password: `password`):
 | Username | Role | Notes |
 |----------|------|-------|
 | `admin` | ADMIN | is_staff=True, is_superuser=True |
-| `staff` | STAFF | Can create transactions |
+| `staff` | STAFF | Can create transactions, manage reservations |
 | `board` | BOARD | Can approve transactions, manage config |
 | `auditor` | AUDITOR | View-only access |
-| `homeowner` | HOMEOWNER | Can view own documents |
+| `homeowner` | HOMEOWNER | Can view own documents, create reservations |
 
 ### Ledger Seeder
 
@@ -182,7 +215,11 @@ agms/
 │   │   ├── services.py # Business logic
 │   │   ├── api.py      # API endpoints
 │   │   └── ...
-│   ├── assets/         # Facility Tracking
+│   ├── assets/         # Facility Tracking & Reservations
+│   │   ├── models.py   # Asset, Reservation, ReservationConfig
+│   │   ├── services.py # Business logic
+│   │   ├── api.py      # API endpoints
+│   │   └── tasks.py    # Celery tasks (expiration)
 │   ├── intelligence/   # AI & Automation
 │   └── governance/     # Board Resolutions
 ├── docs/               # Documentation
@@ -191,22 +228,129 @@ agms/
 └── requirements.txt
 ```
 
-## API Endpoints (Ledger)
+## API Endpoints
+
+### Identity (`/api/identity/`)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/ledger/transactions` | GET | List transactions with filters |
-| `/api/ledger/transactions/income` | POST | Record income |
-| `/api/ledger/transactions/expense` | POST | Record expense |
-| `/api/ledger/transactions/{id}/approve` | POST | Approve transaction |
-| `/api/ledger/analytics/summary` | GET | Financial summary (MTD/YTD) |
-| `/api/ledger/analytics/profit-loss` | GET | Profit/loss status |
-| `/api/ledger/reports/daily` | GET | Download daily PDF report |
-| `/api/ledger/reports/monthly` | GET | Download monthly PDF report |
-| `/api/ledger/reports/yearly` | GET | Download yearly PDF report |
-| `/api/ledger/credits/{unit_id}` | GET | Get unit credit balance |
+| `/login` | POST | User login |
+| `/logout` | POST | User logout |
+| `/me` | GET | Get current user info |
 
-See full API documentation at `/api/docs`.
+### Organizations (`/api/organizations/`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | List organizations |
+| `/` | POST | Create organization |
+| `/{id}` | GET | Get organization |
+| `/{id}` | PUT | Update organization |
+
+### Registry (`/api/registry/units/`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | List units (filtered by role) |
+| `/` | POST | Create unit |
+| `/{id}` | PUT | Update unit |
+| `/{id}` | DELETE | Delete unit |
+
+### Ledger (`/api/ledger/`)
+
+#### Transactions
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/transactions` | GET | List transactions with filters |
+| `/transactions/{id}` | GET | Get transaction details |
+| `/transactions/income` | POST | Record income |
+| `/transactions/expense` | POST | Record expense |
+| `/transactions/income/preview` | POST | Preview income breakdown (penalties, discounts) |
+| `/transactions/{id}/verify` | POST | Verify transaction |
+| `/transactions/{id}/cancel` | POST | Cancel transaction |
+
+#### Attachments
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/transactions/{id}/attachments` | GET | List attachments |
+| `/transactions/{id}/attachments` | POST | Upload receipt |
+
+#### Credits
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/credits/{unit_id}` | GET | Get unit credit balance |
+| `/credits/{unit_id}/history` | GET | Get credit history |
+
+#### Analytics
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/analytics/summary` | GET | Financial summary (MTD/YTD) |
+| `/analytics/expenses-by-category` | GET | Expense breakdown by category |
+| `/analytics/income-by-category` | GET | Income breakdown by category |
+| `/analytics/monthly-trends` | GET | Monthly income/expense trends |
+| `/analytics/best-worst-months` | GET | Best and worst performing months |
+| `/analytics/profit-loss` | GET | Profit/loss status |
+
+#### Configuration
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/categories` | GET | List transaction categories |
+| `/categories` | POST | Create category |
+| `/discounts` | GET | List discount configurations |
+| `/discounts` | POST | Create discount |
+| `/penalties` | GET | List penalty policies |
+| `/penalties` | POST | Create penalty policy |
+| `/billing/config` | GET | Get billing configuration |
+| `/billing/config` | POST | Create/update billing config |
+| `/billing/generate` | POST | Trigger billing generation |
+
+#### Reports
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/reports/daily` | GET | Download daily PDF report |
+| `/reports/monthly` | GET | Download monthly PDF report |
+| `/reports/yearly` | GET | Download yearly PDF report |
+
+### Assets (`/api/assets/`)
+
+#### Asset CRUD
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | List assets |
+| `/` | POST | Create asset |
+| `/{id}` | GET | Get asset |
+| `/{id}` | PUT | Update asset |
+| `/{id}` | DELETE | Soft-delete asset |
+
+#### Configuration
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/config` | GET | Get reservation config (expiration hours, etc.) |
+| `/config` | POST | Update reservation config |
+
+#### Analytics
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/analytics` | GET | Assets with current month income stats |
+| `/{id}/transactions` | GET | Asset income/expense history |
+
+#### Availability
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/{id}/availability` | GET | Get asset schedule/booked slots |
+
+#### Reservations
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/reservations` | GET | List reservations |
+| `/reservations` | POST | Create reservation |
+| `/reservations/preview` | POST | Preview payment breakdown |
+| `/reservations/{id}` | GET | Get reservation details |
+| `/reservations/{id}/payment` | POST | Record payment |
+| `/reservations/{id}/cancel` | POST | Cancel reservation |
+| `/discounts/applicable` | GET | Get applicable discounts |
+
+See full interactive API documentation at `/api/docs`.
 
 ## Architecture
 
