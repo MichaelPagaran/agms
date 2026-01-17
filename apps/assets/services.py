@@ -3,11 +3,12 @@ from typing import List, Optional, Tuple
 from uuid import UUID
 from decimal import Decimal
 from datetime import datetime, date, timedelta
-from django.db.models import Sum, Q
-from django.utils import timezone
-
-from apps.ledger.models import Transaction, TransactionType, TransactionStatus
-from apps.ledger.services import record_income
+from django.core.files.uploadedfile import UploadedFile
+from apps.ledger.models import (
+    Transaction, TransactionType, TransactionStatus, TransactionAttachment
+)
+from apps.ledger.services import record_income, confirm_transaction
+from apps.ledger.attachment_service import upload_receipt
 from apps.ledger.models import DiscountConfig
 
 from .models import Asset, Reservation, ReservationStatus, PaymentStatus, ReservationConfig
@@ -16,7 +17,61 @@ from .dtos import (
     ReservationDTO, AvailabilitySlotDTO, ReservationBreakdownDTO,
     DiscountPreviewDTO, ReservationConfigDTO,
 )
+# ... existing imports ...
 
+# ... inside submit_reservation_receipt ...
+
+def submit_reservation_receipt(
+    reservation_id: UUID,
+    file: UploadedFile,
+    uploaded_by_id: UUID,
+) -> ReservationDTO:
+    """
+    Submit a receipt for reservation payment.
+    Creates a PENDING transaction, uploads the file, and updates reservation status to FOR_REVIEW.
+    """
+    reservation = Reservation.objects.get(id=reservation_id)
+    asset = Asset.objects.get(id=reservation.asset_id)
+    
+    if reservation.status not in [ReservationStatus.PENDING_PAYMENT, ReservationStatus.FOR_REVIEW]:
+        raise ValueError("Receipt can only be submitted for pending reservations")
+        
+    # Create PENDING transaction
+    # Note: We use the full amount for now, assuming 1 receipt = full payment
+    amount_to_pay = reservation.balance_due
+    
+    income_dto, _ = record_income(
+        org_id=reservation.org_id,
+        amount=amount_to_pay,
+        category="Rental Income",
+        description=f"Initial receipt submission for {asset.name} - {reservation.reserved_by_name}",
+        transaction_date=timezone.now().date(),
+        payment_type='EXACT',
+        unit_id=reservation.unit_id,
+        payer_name=reservation.reserved_by_name,
+        created_by_id=uploaded_by_id,
+        status=TransactionStatus.PENDING,
+    )
+    
+    # Upload receipt using attachment service
+    # This handles validation and storage (S3/local)
+    upload_receipt(
+        file=file,
+        transaction_id=income_dto.id,
+        uploaded_by_id=uploaded_by_id
+    )
+    
+    # Update reservation
+    reservation.status = ReservationStatus.FOR_REVIEW
+    reservation.income_transaction_id = income_dto.id
+    reservation.save()
+    
+    return _reservation_to_dto(reservation, asset.name)
+from .dtos import (
+    AssetDTO, AssetAnalyticsDTO, AssetTransactionDTO,
+    ReservationDTO, AvailabilitySlotDTO, ReservationBreakdownDTO,
+    DiscountPreviewDTO, ReservationConfigDTO,
+)
 
 # Default expiration time (used when no ReservationConfig exists)
 DEFAULT_EXPIRATION_HOURS = 48
@@ -492,6 +547,106 @@ def record_reservation_payment(
     if not reservation.income_transaction_id:
         reservation.income_transaction_id = income_dto.id
         reservation.save()
+    
+    return _reservation_to_dto(reservation, asset.name)
+
+
+def submit_reservation_receipt(
+    reservation_id: UUID,
+    file_url: str,
+    file_name: str,
+    file_type: str,
+    file_size: int,
+    uploaded_by_id: UUID,
+) -> ReservationDTO:
+    """
+    Submit a receipt for reservation payment.
+    Creates a PENDING transaction and updates reservation status to FOR_REVIEW.
+    """
+    reservation = Reservation.objects.get(id=reservation_id)
+    asset = Asset.objects.get(id=reservation.asset_id)
+    
+    if reservation.status not in [ReservationStatus.PENDING_PAYMENT, ReservationStatus.FOR_REVIEW]:
+        raise ValueError("Receipt can only be submitted for pending reservations")
+        
+    # Create PENDING transaction
+    # Note: We use the full amount for now, assuming 1 receipt = full payment
+    # If the user uploads partial payment receipt, staff can adjust or reject?
+    # For MVP, we assume it covers the balance due.
+    amount_to_pay = reservation.balance_due
+    
+    income_dto, _ = record_income(
+        org_id=reservation.org_id,
+        amount=amount_to_pay,
+        category="Rental Income",
+        description=f"Initial receipt submission for {asset.name} - {reservation.reserved_by_name}",
+        transaction_date=timezone.now().date(),
+        payment_type='EXACT',
+        unit_id=reservation.unit_id,
+        payer_name=reservation.reserved_by_name,
+        created_by_id=uploaded_by_id,
+        status=TransactionStatus.PENDING,
+    )
+    
+    # Create attachment for the transaction
+    TransactionAttachment.objects.create(
+        transaction_id=income_dto.id,
+        file_url=file_url,
+        file_name=file_name,
+        file_type=file_type,
+        file_size=file_size,
+        uploaded_by_id=uploaded_by_id,
+    )
+    
+    # Update reservation
+    reservation.status = ReservationStatus.FOR_REVIEW
+    reservation.income_transaction_id = income_dto.id
+    reservation.save()
+    
+    return _reservation_to_dto(reservation, asset.name)
+
+
+def confirm_reservation_receipt(
+    reservation_id: UUID,
+    confirmed_by_id: UUID,
+) -> ReservationDTO:
+    """
+    Confirm a reservation receipt.
+    Verifies the pending transaction (posts it) and confirms the reservation.
+    """
+    reservation = Reservation.objects.get(id=reservation_id)
+    asset = Asset.objects.get(id=reservation.asset_id)
+    
+    if reservation.status != ReservationStatus.FOR_REVIEW:
+        raise ValueError("Only reservations 'For Review' can be confirmed")
+    
+    if not reservation.income_transaction_id:
+        raise ValueError("No transaction linked to this reservation")
+        
+    # Confirm transaction (this posts it to ledger)
+    transaction_dto = confirm_transaction(
+        transaction_id=reservation.income_transaction_id,
+        verified_by_id=confirmed_by_id,
+    )
+    
+    # Update reservation payment tracking
+    reservation.amount_paid += transaction_dto.amount
+    
+    if reservation.amount_paid >= reservation.total_amount:
+        reservation.payment_status = PaymentStatus.PAID
+        reservation.status = ReservationStatus.CONFIRMED
+        reservation.expires_at = None
+    elif reservation.amount_paid > Decimal('0.00'):
+        # This shouldn't normally happen if we created transaction for full balance
+        reservation.payment_status = PaymentStatus.PARTIAL
+        reservation.status = ReservationStatus.CONFIRMED # Still confirm if partially paid? Or back to PENDING_PAYMENT?
+        # Requirement says "change the status to confirmed after viewing".
+        # We'll assume confirmation means "Accept Payment & Confirm Reservation"
+        reservation.expires_at = None
+        
+    reservation.approved_by_id = confirmed_by_id
+    reservation.approved_at = timezone.now()
+    reservation.save()
     
     return _reservation_to_dto(reservation, asset.name)
 

@@ -102,6 +102,7 @@ class ReservationConfig(models.Model):
 
 class ReservationStatus(models.TextChoices):
     PENDING_PAYMENT = 'PENDING_PAYMENT', 'Pending Payment'
+    FOR_REVIEW = 'FOR_REVIEW', 'For Review'
     CONFIRMED = 'CONFIRMED', 'Confirmed'
     COMPLETED = 'COMPLETED', 'Completed'
     CANCELLED = 'CANCELLED', 'Cancelled'

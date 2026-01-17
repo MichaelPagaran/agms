@@ -636,13 +636,18 @@ def record_income(
     reference_number: Optional[str] = None,
     apply_discount_ids: Optional[List[UUID]] = None,
     created_by_id: Optional[UUID] = None,
+    status: str = TransactionStatus.POSTED,
 ) -> Tuple[TransactionDTO, Optional[Decimal]]:
     """
     Record an income transaction.
     
+    Args:
+        status: Transaction status (default: POSTED). Use PENDING for unverified receipts.
+    
     Returns:
         Tuple of (TransactionDTO, credit_to_add) where credit_to_add
         is the amount added to unit credit for advance payments.
+        Note: credit_to_add is None if status is PENDING.
     """
     # Validate payment amount if unit specified
     if unit_id:
@@ -666,7 +671,7 @@ def record_income(
         unit_id=unit_id,
         category_id=category_id,
         transaction_type=TransactionType.INCOME,
-        status=TransactionStatus.POSTED,
+        status=status,
         payment_type=payment_type,
         gross_amount=breakdown.gross_amount,
         net_amount=breakdown.net_amount,
@@ -702,21 +707,90 @@ def record_income(
         is_verified=transaction.is_verified,
     )
     
-    # Handle advance payment credit immediately
+    # Handle advance payment credit - ONLY if POSTED
+    credit_to_add = None
+    if status == TransactionStatus.POSTED:
+        if (transaction.transaction_type == TransactionType.INCOME and 
+            transaction.payment_type == PaymentType.ADVANCE and
+            transaction.unit_id and breakdown.credit_to_add):
+            
+            add_credit(
+                org_id=transaction.org_id,
+                unit_id=transaction.unit_id,
+                amount=breakdown.credit_to_add,
+                transaction_id=transaction.id,
+                description=f"Advance payment credit from transaction {transaction.id}",
+                created_by_id=created_by_id,
+            )
+            credit_to_add = breakdown.credit_to_add
+            
+        # Mark dues as paid
+        if transaction.unit_id:
+            current_dues = get_current_dues_for_unit(transaction.org_id, transaction.unit_id)
+            if current_dues:
+                current_dues.status = DuesStatementStatus.PAID
+                current_dues.amount_paid = current_dues.net_amount
+                current_dues.paid_date = transaction.transaction_date
+                current_dues.payment_transaction_id = transaction.id
+                current_dues.save()
+            
+    return dto, credit_to_add
+
+
+def confirm_transaction(
+    transaction_id: UUID,
+    verified_by_id: UUID,
+) -> TransactionDTO:
+    """
+    Confirm a PENDING transaction (mark as POSTED).
+    Executes deferred logic (e.g. credit updates).
+    """
+    transaction = Transaction.objects.get(id=transaction_id)
+    
+    if transaction.status == TransactionStatus.POSTED:
+        return get_transaction_dto(transaction.id)
+        
+    if transaction.status != TransactionStatus.PENDING:
+        raise ValueError(f"Cannot confirm transaction with status {transaction.status}")
+        
+    transaction.status = TransactionStatus.POSTED
+    transaction.is_verified = True
+    transaction.verified_by_id = verified_by_id
+    transaction.verified_at = timezone.now()
+    transaction.save()
+    
+    # Execute deferred logic (Advance Payment Credit)
     if (transaction.transaction_type == TransactionType.INCOME and 
         transaction.payment_type == PaymentType.ADVANCE and
-        transaction.unit_id and breakdown.credit_to_add):
+        transaction.unit_id):
         
-        add_credit(
-            org_id=transaction.org_id,
-            unit_id=transaction.unit_id,
-            amount=breakdown.credit_to_add,
+        # Re-calculate breakdown to get credit amount
+        # Note: We assume penalties/discounts are already fixed in adjustments
+        total_due = Decimal('0.00')
+        current_dues = get_current_dues_for_unit(transaction.org_id, transaction.unit_id)
+        if current_dues:
+            total_due = current_dues.net_amount - current_dues.amount_paid
+            
+        # Adjust total_due to include penalties created in this transaction
+        penalties = TransactionAdjustment.objects.filter(
             transaction_id=transaction.id,
-            description=f"Advance payment credit from transaction {transaction.id}",
-            created_by_id=created_by_id,
-        )
-        
-        # Mark dues as paid
+            adjustment_type=AdjustmentType.PENALTY
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        total_due += penalties
+            
+        if transaction.net_amount > total_due:
+            credit_to_add = transaction.net_amount - total_due
+            add_credit(
+                org_id=transaction.org_id,
+                unit_id=transaction.unit_id,
+                amount=credit_to_add,
+                transaction_id=transaction.id,
+                description=f"Advance payment credit from transaction {transaction.id}",
+                created_by_id=verified_by_id,
+            )
+            
+    # Mark dues as paid
+    if transaction.unit_id:
         current_dues = get_current_dues_for_unit(transaction.org_id, transaction.unit_id)
         if current_dues:
             current_dues.status = DuesStatementStatus.PAID
@@ -725,7 +799,7 @@ def record_income(
             current_dues.payment_transaction_id = transaction.id
             current_dues.save()
             
-    return dto, breakdown.credit_to_add
+    return get_transaction_dto(transaction.id)
 
 
 # =============================================================================

@@ -189,6 +189,8 @@ docker-compose exec backend python manage.py seed_ledger_defaults --all
 
 ## Running Tests
 
+### Local Environment
+
 ```bash
 # Run all ledger tests
 python manage.py test apps.ledger
@@ -196,6 +198,19 @@ python manage.py test apps.ledger
 # Run specific test file
 python manage.py test apps.ledger.tests.test_services
 python manage.py test apps.ledger.tests.test_api
+```
+
+### Docker Environment
+
+```bash
+# Run all tests
+docker-compose exec backend python manage.py test
+
+# Run specific app tests
+docker-compose exec backend python manage.py test apps.assets
+
+# Run specific test file
+docker-compose exec backend python manage.py test apps.assets.tests.test_receipt_workflow
 ```
 
 ## Project Structure

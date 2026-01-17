@@ -2,8 +2,9 @@
 from typing import List, Optional
 from uuid import UUID
 from datetime import date
-from ninja import Router
+from ninja import Router, File
 from ninja.errors import HttpError
+from ninja.files import UploadedFile
 from django.http import HttpRequest
 
 from apps.identity.permissions import Permissions, get_user_permissions
@@ -291,6 +292,56 @@ def record_payment(request: HttpRequest, reservation_id: UUID, payload: Reservat
         raise HttpError(400, str(e))
     except Exception as e:
         raise HttpError(404, "Reservation not found")
+
+
+@router.post("/reservations/{reservation_id}/receipt", response=ReservationOut, auth=None)
+def submit_receipt(request: HttpRequest, reservation_id: UUID, file: UploadedFile = File(...)):
+    """
+    Submit reservation receipt (proof of payment).
+    Requires RESERVATION_CREATE (user own) or MANAGE (staff).
+    """
+    # Check permissions
+    # User can upload for their own reservation, or staff can upload?
+    # Requirement: "user to be able to upload a receipt"
+    require_permission(request, Permissions.RESERVATION_CREATE)
+    
+    reservation = services.get_reservation(reservation_id)
+    if not reservation:
+        raise HttpError(404, "Reservation not found")
+        
+    # Check ownership if not staff
+    perms = get_user_permissions(request.user)
+    if Permissions.RESERVATION_VIEW_ALL not in perms:
+        if reservation.reserved_by_id != request.user.id:
+            raise HttpError(403, "Can only upload receipt for your own reservation")
+            
+    try:
+        updated = services.submit_reservation_receipt(
+            reservation_id=reservation_id,
+            file=file,
+            uploaded_by_id=request.user.id,
+        )
+        return ReservationOut(**updated.__dict__)
+    except ValueError as e:
+        raise HttpError(400, str(e))
+
+
+@router.post("/reservations/{reservation_id}/confirm-receipt", response=ReservationOut, auth=None)
+def confirm_receipt(request: HttpRequest, reservation_id: UUID):
+    """
+    Confirm reservation receipt.
+    Requires RESERVATION_APPROVE.
+    """
+    require_permission(request, Permissions.RESERVATION_APPROVE)
+    
+    try:
+        updated = services.confirm_reservation_receipt(
+            reservation_id=reservation_id,
+            confirmed_by_id=request.user.id,
+        )
+        return ReservationOut(**updated.__dict__)
+    except ValueError as e:
+        raise HttpError(400, str(e))
 
 
 @router.post("/reservations/{reservation_id}/cancel", response=ReservationOut, auth=None)
