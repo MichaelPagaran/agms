@@ -18,6 +18,7 @@ A specialized, AI-enhanced Financial Management System for Philippine Homeowners
 The Financial Ledger has been significantly enhanced with the following capabilities:
 
 #### Core Features
+
 - **Transaction CRUD**: Record income and expenses with category management
 - **Approval Workflow**: POSTED → VERIFIED status flow
 - **Amount Validation**: Prevents overcollection (exact match unless advance payment)
@@ -25,12 +26,14 @@ The Financial Ledger has been significantly enhanced with the following capabili
 - **Attachments**: Receipt upload with S3-ready storage
 
 #### Calculations
+
 - **Simple Interest Penalties**: `I = P × R × T` (Principal × Rate × Time in months)
 - **Configurable Discounts**: Percentage or flat discounts with minimum month requirements
 - **Dues Statement Tracking**: Monthly dues per unit with penalty tracking
 - **Breakdown Preview**: See penalties, discounts, and net amount before submission
 
 #### Reporting & Analytics
+
 - **PDF Reports**: Daily, monthly, and yearly reports using WeasyPrint
 - **Financial Summaries**: MTD/YTD income, expense, and net balance
 - **Category Breakdowns**: Income and expense analysis by category
@@ -39,6 +42,7 @@ The Financial Ledger has been significantly enhanced with the following capabili
 - **Profit/Loss Status**: Real-time profitability indicators
 
 #### Configuration
+
 - **Billing Configuration**: Monthly dues amount, due dates, grace periods
 - **Penalty Policies**: Configurable rates, grace periods, and calculation methods
 - **Discount Configurations**: Validity dates, minimum months, percentage or flat
@@ -48,6 +52,7 @@ The Financial Ledger has been significantly enhanced with the following capabili
 Manage revenue-generating and shared infrastructure facilities:
 
 #### Core Features
+
 - **Asset CRUD**: Create, update, and soft-delete assets (Pool, Clubhouse, Function Hall, etc.)
 - **Reservation System**: Book assets with scheduling and availability checking
 - **Payment Workflow**: Homeowners get PENDING_PAYMENT status; staff confirms after payment
@@ -55,17 +60,20 @@ Manage revenue-generating and shared infrastructure facilities:
 - **Configurable Policies**: Per-organization settings for expiration, same-day booking, advance booking
 
 #### Pricing & Discounts
+
 - **Hourly Rates**: Configurable rental rates per asset
 - **Security Deposits**: Optional deposits with configurable amounts
 - **Discount Integration**: Apply existing discounts to reservations
 - **Payment Breakdown Preview**: See full breakdown before booking
 
 #### Analytics
+
 - **Income per Asset**: Current month income, expenses, and net profit
 - **Transaction History**: Drill-down to see rent and expense history per asset
 - **Reservation Count**: Track utilization per asset
 
 #### Reservation Status Flow
+
 ```
 [HOMEOWNER creates] → PENDING_PAYMENT → [Staff records payment] → CONFIRMED → COMPLETED
                                       ↓ (timeout)
@@ -150,6 +158,7 @@ python manage.py seed_ledger_defaults --all
 ```
 
 This command seeds:
+
 - **Income Categories**: Monthly Dues, Special Assessments, Rental Income, Parking Fees, etc.
 - **Expense Categories**: Utilities, Security, Maintenance, Administrative, etc.
 - **Discounts**: Early Payment (5%), 6-Month Advance (10%), 12-Month Advance (20%)
@@ -162,7 +171,6 @@ This command seeds:
 docker-compose exec backend python manage.py seed_users
 docker-compose exec backend python manage.py seed_ledger_defaults --all
 ```
-
 
 ## Development (Local)
 
@@ -237,13 +245,15 @@ agms/
 | `/login` | POST | User login |
 | `/logout` | POST | User logout |
 | `/me` | GET | Get current user info |
+| `/users` | POST | **Create User** - Admin adds user to their Org |
 
 ### Organizations (`/api/organizations/`)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | List organizations |
-| `/` | POST | Create organization |
+| `/` | POST | Create organization (Internal) |
+| `/onboard` | POST | **Onboard Organization (Public)** - Creates Org + Admin |
 | `/{id}` | GET | Get organization |
 | `/{id}` | PUT | Update organization |
 
@@ -259,6 +269,7 @@ agms/
 ### Ledger (`/api/ledger/`)
 
 #### Transactions
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/transactions` | GET | List transactions with filters |
@@ -270,18 +281,21 @@ agms/
 | `/transactions/{id}/cancel` | POST | Cancel transaction |
 
 #### Attachments
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/transactions/{id}/attachments` | GET | List attachments |
 | `/transactions/{id}/attachments` | POST | Upload receipt |
 
 #### Credits
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/credits/{unit_id}` | GET | Get unit credit balance |
 | `/credits/{unit_id}/history` | GET | Get credit history |
 
 #### Analytics
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/analytics/summary` | GET | Financial summary (MTD/YTD) |
@@ -292,6 +306,7 @@ agms/
 | `/analytics/profit-loss` | GET | Profit/loss status |
 
 #### Configuration
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/categories` | GET | List transaction categories |
@@ -305,6 +320,7 @@ agms/
 | `/billing/generate` | POST | Trigger billing generation |
 
 #### Reports
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/reports/daily` | GET | Download daily PDF report |
@@ -314,6 +330,7 @@ agms/
 ### Assets (`/api/assets/`)
 
 #### Asset CRUD
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | List assets |
@@ -323,23 +340,27 @@ agms/
 | `/{id}` | DELETE | Soft-delete asset |
 
 #### Configuration
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/config` | GET | Get reservation config (expiration hours, etc.) |
 | `/config` | POST | Update reservation config |
 
 #### Analytics
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/analytics` | GET | Assets with current month income stats |
 | `/{id}/transactions` | GET | Asset income/expense history |
 
 #### Availability
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/{id}/availability` | GET | Get asset schedule/booked slots |
 
 #### Reservations
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/reservations` | GET | List reservations |

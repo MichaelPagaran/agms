@@ -8,9 +8,23 @@ from django.shortcuts import get_object_or_404
 from apps.identity.permissions import Permissions
 from apps.identity.security import has_permission
 from .models import Organization
-from .dtos import OrganizationOut, OrganizationIn
+from .dtos import OrganizationOut, OrganizationIn, OnboardingRequest, OnboardingResponse
+from .services import onboard_organization
 
 router = Router()
+
+@router.post("/onboard", response=OnboardingResponse, auth=None)
+def create_onboard(request: HttpRequest, payload: OnboardingRequest):
+    """
+    **Public Endpoint**: Register a new Organization.
+    
+    This creates:
+    1. A new Organization tenant.
+    2. An 'Initial Administrator' user linked to that organization.
+    
+    No authentication is required.
+    """
+    return onboard_organization(payload)
 
 @router.post("", response=OrganizationOut, auth=None)
 def create_organization(request: HttpRequest, payload: OrganizationIn):

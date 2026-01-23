@@ -16,3 +16,14 @@ class OrganizationIn(Schema):
     address: Optional[str] = None
     fiscal_year_start_month: int = 1
     is_active: bool = True
+
+
+from apps.identity.dtos import UserCreate, UserDTO
+
+class OnboardingRequest(Schema):
+    organization: OrganizationIn
+    admin_user: UserCreate
+
+class OnboardingResponse(Schema):
+    organization: OrganizationOut
+    admin_user: UserDTO

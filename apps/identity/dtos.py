@@ -13,3 +13,17 @@ class UserDTO:
     org_id: Optional[UUID]
     is_active: bool
     permissions: List[str]
+
+
+from ninja import Schema
+from .models import UserRole
+
+class UserCreate(Schema):
+    username: str
+    email: str
+    password: str
+    first_name: str
+    last_name: str
+    role: str = UserRole.HOMEOWNER
+    phone: Optional[str] = None
+
