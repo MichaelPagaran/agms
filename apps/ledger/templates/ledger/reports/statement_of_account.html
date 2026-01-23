@@ -1,0 +1,71 @@
+{% extends "ledger/reports/base.html" %}
+
+{% block content %}
+<div class="summary-section">
+    <div class="summary-title">Unit Information</div>
+    <table style="margin: 0; width: 100%;">
+        <tr>
+            <td style="border: none; padding: 2px;"><strong>Unit:</strong> {{ unit_name }}</td>
+            <td style="border: none; padding: 2px;"><strong>Owner:</strong> {{ owner_name }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section-header">Statement Summary</div>
+<div class="summary-grid">
+    <div class="summary-box">
+        <div class="summary-label">Total Charges</div>
+        <div class="summary-value expense-value">{{ total_charges|floatformat:2 }}</div>
+    </div>
+    <div class="summary-box">
+        <div class="summary-label">Total Payments</div>
+        <div class="summary-value income-value">{{ total_payments|floatformat:2 }}</div>
+    </div>
+    <div class="summary-box">
+        <div class="summary-label">Balance Due</div>
+        <div class="summary-value {% if balance_due > 0 %}net-negative{% else %}net-positive{% endif %}">
+            {{ balance_due|floatformat:2 }}
+        </div>
+    </div>
+</div>
+
+<div class="section-header">Transaction History</div>
+<table>
+    <thead>
+        <tr>
+            <th style="width: 15%">Date</th>
+            <th style="width: 40%">Description</th>
+            <th style="width: 15%">Ref #</th>
+            <th style="width: 15%; text-align: right;">Charge</th>
+            <th style="width: 15%; text-align: right;">Payment</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in history %}
+        <tr>
+            <td>{{ item.date }}</td>
+            <td>{{ item.description }}</td>
+            <td>{{ item.reference }}</td>
+            <td class="amount-cell">{% if item.charge %}{{ item.charge|floatformat:2 }}{% endif %}</td>
+            <td class="amount-cell">{% if item.payment %}{{ item.payment|floatformat:2 }}{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" style="text-align: center; color: #666;">No transactions found for this period.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td colspan="3" style="text-align: right;">TOTALS</td>
+            <td class="amount-cell">{{ total_charges|floatformat:2 }}</td>
+            <td class="amount-cell">{{ total_payments|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div style="margin-top: 30px; border: 1px solid #dee2e6; padding: 15px; background: #fff3cd; color: #856404; font-size: 9pt;">
+    <strong>Note:</strong> Please ensure payments are made before the due date to avoid penalties. 
+    For discrepancies, please contact the administration office immediately.
+</div>
+{% endblock %}

@@ -145,6 +145,17 @@ class Transaction(models.Model):
     verified_by_id = models.UUIDField(null=True, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     
+    # Accounts Payable Tracking
+    is_disbursed = models.BooleanField(
+        default=True,
+        help_text="True if cash has left the organization. False means Account Payable."
+    )
+    disbursement_date = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Date when payment was actually made (if different from transaction date)"
+    )
+    
     # Dates
     transaction_date = models.DateField()
     

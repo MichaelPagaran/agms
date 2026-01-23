@@ -51,3 +51,6 @@ extract_docs.py
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+# Prototypes
+apps/ledger/prototypes/
