@@ -2,8 +2,9 @@ from ninja import Router, Schema
 from django.http import HttpRequest
 from ninja.errors import HttpError
 from django.contrib.auth import authenticate, login, logout
-from .dtos import UserDTO
-from .services import get_user_dto
+from .dtos import UserDTO, UserCreate
+from .services import get_user_dto, create_user
+from apps.identity.permissions import Permissions, get_user_permissions
 
 router = Router()
 
@@ -37,3 +38,23 @@ def get_me(request: HttpRequest):
     if not user_dto:
         raise HttpError(404, "User not found")
     return user_dto
+
+
+@router.post("/users", response=UserDTO, auth=None)
+def create_org_user(request: HttpRequest, payload: UserCreate):
+    """
+    **Admin Endpoint**: Add a new user to your Organization.
+    
+    This allows an Organization Admin to create Staff, Board Members, or Homeowners
+    within their own organization.
+    
+    Requires `identity.manage_user` permission.
+    """
+    if not request.user.is_authenticated:
+        raise HttpError(401, "Unauthorized")
+
+    perms = get_user_permissions(request.user)
+    if Permissions.IDENTITY_MANAGE_USER not in perms:
+        raise HttpError(403, "Permission denied")
+
+    return create_user(request.user.org_id, payload)

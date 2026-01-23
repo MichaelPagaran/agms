@@ -93,6 +93,7 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         Permissions.IDENTITY_VIEW_USER,
         # Governance
         Permissions.GOVERNANCE_VIEW_DOCS,
+        Permissions.GOVERNANCE_MANAGE_DOCS,
         # Registry
         Permissions.REGISTRY_VIEW_ALL_UNITS,
         Permissions.REGISTRY_MANAGE_UNIT,

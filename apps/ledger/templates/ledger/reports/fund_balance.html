@@ -1,0 +1,60 @@
+{% extends "ledger/reports/base.html" %}
+
+{% block content %}
+<div class="section-header">CHANGES IN FUND BALANCE</div>
+<table>
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th style="text-align: right;">General Fund</th>
+            <!-- Can add Special Funds cols here if needed -->
+            <th style="text-align: right;">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Fund Balance, Beginning</strong></td>
+            <td class="amount-cell">{{ fund_beginning|floatformat:2 }}</td>
+            <td class="amount-cell"><strong>{{ fund_beginning|floatformat:2 }}</strong></td>
+        </tr>
+
+        <tr>
+            <td colspan="3" style="padding: 15px 0 5px 0; font-weight: bold; color: #2c3e50;">Add: Net Surplus</td>
+        </tr>
+        <tr>
+            <td style="padding-left: 20px;">Excess of Revenues over Expenses</td>
+            <td class="amount-cell">{{ net_surplus|floatformat:2 }}</td>
+            <td class="amount-cell">{{ net_surplus|floatformat:2 }}</td>
+        </tr>
+
+        <tr>
+            <td colspan="3" style="padding: 15px 0 5px 0; font-weight: bold; color: #2c3e50;">Less: Prior Period
+                Adjustments</td>
+        </tr>
+        {% for item in adjustments %}
+        <tr>
+            <td style="padding-left: 20px;">{{ item.name }}</td>
+            <td class="amount-cell">({{ item.amount|floatformat:2 }})</td>
+            <td class="amount-cell">({{ item.amount|floatformat:2 }})</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3" style="padding-left: 20px; color: #666;">No adjustments.</td>
+        </tr>
+        {% endfor %}
+
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td>FUND BALANCE, ENDING</td>
+            <td class="amount-cell">{{ fund_ending|floatformat:2 }}</td>
+            <td class="amount-cell" style="color: #2c3e50; font-size: 11pt;">{{ fund_ending|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div style="margin-top: 40px;">
+    <p><strong>Note:</strong> The General Fund represents the accumulated surplus of the association available for
+        general operations.</p>
+</div>
+{% endblock %}

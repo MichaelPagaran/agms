@@ -1,0 +1,107 @@
+{% extends "ledger/reports/base.html" %}
+
+{% block content %}
+<div class="section-header">CASH FLOWS FROM OPERATING ACTIVITIES</div>
+<table>
+    <thead>
+        <tr>
+            <th>Activity</th>
+            <th style="text-align: right; width: 25%;">Current Year</th>
+            <th style="text-align: right; width: 25%;">Previous Year</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Net Surplus / (Deficit)</td>
+            <td class="amount-cell"><strong>{{ net_surplus|floatformat:2 }}</strong></td>
+            <td class="amount-cell" style="color: #666;"><strong>{{ net_surplus_prev|floatformat:2 }}</strong></td>
+        </tr>
+        <tr>
+            <td colspan="3" style="font-style: italic; color: #666; padding-left: 20px;">Adjustments to reconcile net
+                surplus to net cash:</td>
+        </tr>
+        {% for item in operating_activities %}
+        <tr>
+            <td style="padding-left: 20px;">{{ item.name }}</td>
+            <td class="amount-cell">{{ item.amount|floatformat:2 }}</td>
+            <td class="amount-cell" style="color: #666;">{{ item.prev_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td>Net Cash from Operating Activities</td>
+            <td class="amount-cell">{{ net_cash_operating|floatformat:2 }}</td>
+            <td class="amount-cell">{{ net_cash_operating_prev|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="section-header">CASH FLOWS FROM INVESTING ACTIVITIES</div>
+<table>
+    <tbody>
+        {% for item in investing_activities %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td class="amount-cell">{{ item.amount|floatformat:2 }}</td>
+            <td class="amount-cell" style="color: #666;">{{ item.prev_amount|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3" style="color: #666; text-align: center;">No investing activities.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td>Net Cash from Investing Activities</td>
+            <td class="amount-cell">{{ net_cash_investing|floatformat:2 }}</td>
+            <td class="amount-cell">{{ net_cash_investing_prev|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="section-header">CASH FLOWS FROM FINANCING ACTIVITIES</div>
+<table>
+    <tbody>
+        {% for item in financing_activities %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td class="amount-cell">{{ item.amount|floatformat:2 }}</td>
+            <td class="amount-cell" style="color: #666;">{{ item.prev_amount|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3" style="color: #666; text-align: center;">No financing activities.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td>Net Cash from Financing Activities</td>
+            <td class="amount-cell">{{ net_cash_financing|floatformat:2 }}</td>
+            <td class="amount-cell">{{ net_cash_financing_prev|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="summary-section" style="margin-top: 30px;">
+    <div class="summary-grid">
+        <div class="summary-box">
+            <div class="summary-label">Net Increase in Cash</div>
+            <div class="summary-value">{{ net_increase_cash|floatformat:2 }}</div>
+            <div style="font-size: 8pt; color: #666;">Prev: {{ net_increase_cash_prev|floatformat:2 }}</div>
+        </div>
+        <div class="summary-box">
+            <div class="summary-label">Cash at Beginning</div>
+            <div class="summary-value" style="color: #666;">{{ cash_beginning|floatformat:2 }}</div>
+            <div style="font-size: 8pt; color: #999;">Prev: {{ cash_beginning_prev|floatformat:2 }}</div>
+        </div>
+        <div class="summary-box" style="border: 2px solid #2c3e50; background: #e8f8f0;">
+            <div class="summary-label">Cash at End</div>
+            <div class="summary-value">{{ cash_ending|floatformat:2 }}</div>
+            <div style="font-size: 8pt; color: #666;">Prev: {{ cash_ending_prev|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

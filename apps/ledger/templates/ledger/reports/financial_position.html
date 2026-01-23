@@ -1,0 +1,89 @@
+{% extends "ledger/reports/base.html" %}
+
+{% block content %}
+<!-- ASSETS -->
+<div class="section-header">ASSETS</div>
+<table>
+    <thead>
+        <tr>
+            <th>Current Assets</th>
+            <th style="text-align: right; width: 25%;">Current Year</th>
+            <th style="text-align: right; width: 25%;">Previous Year</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in assets %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td class="amount-cell">{{ item.amount|floatformat:2 }}</td>
+            <td class="amount-cell" style="color: #666;">{{ item.prev_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td>TOTAL ASSETS</td>
+            <td class="amount-cell" style="color: #2c3e50;">{{ total_assets|floatformat:2 }}</td>
+            <td class="amount-cell">{{ total_assets_prev|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<!-- LIABILITIES -->
+<div class="section-header">LIABILITIES</div>
+<table>
+    <thead>
+        <tr>
+            <th>Current Liabilities</th>
+            <th style="text-align: right; width: 25%;">Current Year</th>
+            <th style="text-align: right; width: 25%;">Previous Year</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in liabilities %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td class="amount-cell">{{ item.amount|floatformat:2 }}</td>
+            <td class="amount-cell" style="color: #666;">{{ item.prev_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td>TOTAL LIABILITIES</td>
+            <td class="amount-cell" style="color: #e74c3c;">{{ total_liabilities|floatformat:2 }}</td>
+            <td class="amount-cell">{{ total_liabilities_prev|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<!-- EQUITY -->
+<div class="section-header">EQUITY (FUND BALANCE)</div>
+<table>
+    <thead>
+        <tr>
+            <th>Equity</th>
+            <th style="text-align: right; width: 25%;">Current Year</th>
+            <th style="text-align: right; width: 25%;">Previous Year</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Association Fund Balance</td>
+            <td class="amount-cell">{{ fund_balance|floatformat:2 }}</td>
+            <td class="amount-cell" style="color: #666;">{{ fund_balance_prev|floatformat:2 }}</td>
+        </tr>
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td>TOTAL LIABILITIES AND EQUITY</td>
+            <td class="amount-cell" style="color: #2c3e50;">{{ total_liabilities_equity|floatformat:2 }}</td>
+            <td class="amount-cell">{{ total_liabilities_equity_prev|floatformat:2 }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div style="font-size: 8pt; color: #666; margin-top: 20px; text-align: center;">
+    <em>* This statement assumes cash basis for revenue and accrual basis for expenses where applicable.</em>
+</div>
+{% endblock %}

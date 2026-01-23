@@ -19,12 +19,14 @@ from apps.registry.api import router as registry_router
 from apps.organizations.api import router as organizations_router
 from apps.ledger.api import router as ledger_router
 from apps.assets.api import router as assets_router
+from apps.governance.api import router as governance_router
 
 api.add_router("/identity/", identity_router)
 api.add_router("/registry/units/", registry_router)
 api.add_router("/organizations/", organizations_router)
 api.add_router("/ledger/", ledger_router)
 api.add_router("/assets/", assets_router)
+api.add_router("/governance/", governance_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
