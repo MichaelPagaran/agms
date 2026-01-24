@@ -18,7 +18,7 @@ from .schemas import (
     ReservationConfigIn, ReservationConfigOut,
 )
 
-router = Router()
+router = Router(tags=["Assets"])
 
 
 # =============================================================================

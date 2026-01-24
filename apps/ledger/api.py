@@ -31,7 +31,7 @@ from . import services
 from . import analytics_service
 from . import attachment_service
 
-router = Router()
+router = Router(tags=["Ledger"])
 
 
 # =============================================================================

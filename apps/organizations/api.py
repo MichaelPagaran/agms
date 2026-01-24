@@ -11,7 +11,7 @@ from .models import Organization
 from .dtos import OrganizationOut, OrganizationIn, OnboardingRequest, OnboardingResponse
 from .services import onboard_organization
 
-router = Router()
+router = Router(tags=["Organizations"])
 
 @router.post("/onboard", response=OnboardingResponse, auth=None)
 def create_onboard(request: HttpRequest, payload: OnboardingRequest):

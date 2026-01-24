@@ -33,3 +33,33 @@ def create_user(org_id, payload: UserCreate) -> UserDTO:
         is_active=True
     )
     return get_user_dto(user.id)
+    return get_user_dto(user.id)
+
+
+def list_users(org_id) -> list[UserDTO]:
+    users = User.objects.filter(org_id=org_id)
+    return [get_user_dto(u.id) for u in users]
+
+
+def update_user(user_id, data: dict) -> UserDTO | None:
+    try:
+        user = User.objects.get(id=user_id)
+        
+        for key, value in data.items():
+            if value is not None:
+                setattr(user, key, value)
+        
+        user.save()
+        return get_user_dto(user_id)
+    except User.DoesNotExist:
+        return None
+
+
+def soft_delete_user(user_id) -> bool:
+    try:
+        user = User.objects.get(id=user_id)
+        user.is_active = False # Soft delete usually means disabling login
+        user.save()
+        return True
+    except User.DoesNotExist:
+        return False
