@@ -9,7 +9,7 @@ from apps.identity.security import has_permission
 from .dtos import UnitOut, UnitIn
 from .services import list_units, create_unit, update_unit, soft_delete_unit
 
-router = Router()
+router = Router(tags=["Registry"])
 
 @router.get("", response=List[UnitOut], auth=None)
 # NOTE: We can't trivially use 'has_permission' decorator here because logic forks:

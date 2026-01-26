@@ -27,3 +27,11 @@ class UserCreate(Schema):
     role: str = UserRole.HOMEOWNER
     phone: Optional[str] = None
 
+
+class UserUpdate(Schema):
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: Optional[bool] = None
