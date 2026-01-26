@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third-party
     'storages',
+    'corsheaders',
     # Core Apps
     'apps.core',
     'apps.organizations',
@@ -41,6 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Must be before CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -142,3 +144,26 @@ globals().update(_storage_settings)
 
 # Export USE_S3 for services to check
 USE_S3_STORAGE = USE_S3
+
+# =============================================================================
+# CORS Configuration
+# =============================================================================
+# Allowed origins for cross-origin requests
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",       # Next.js dev server
+    "http://127.0.0.1:3000",
+]
+
+# Allow credentials (cookies) to be sent with cross-origin requests
+CORS_ALLOW_CREDENTIALS = True
+
+# Expose headers that the frontend can read
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
+
+# =============================================================================
+# JWT Configuration
+# =============================================================================
+JWT_SECRET = os.getenv('JWT_SECRET', SECRET_KEY)
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 15
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = 7
+

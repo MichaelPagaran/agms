@@ -30,3 +30,10 @@ tzdata>=2024.1
 
 # Optional: Install for S3 storage
 # boto3>=1.28.0
+
+# JWT Authentication
+PyJWT>=2.8.0
+
+# CORS Headers
+django-cors-headers>=4.3.0
+
