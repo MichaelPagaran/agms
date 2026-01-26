@@ -9,6 +9,8 @@ This guide covers deploying the AGMS backend in different environments.
 3. [AWS Lambda (Production)](#aws-lambda-production)
 4. [Troubleshooting](#troubleshooting)
 
+> 🆕 **First time with AWS?** See [AWS_SETUP.md](./AWS_SETUP.md) for step-by-step account creation and initial setup.
+
 ---
 
 ## Local Development
