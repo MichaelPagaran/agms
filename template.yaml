@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AGMS Serverless Backend - Django Ninja on AWS Lambda
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.12
+    Environment:
+      Variables:
+        DJANGO_SETTINGS_MODULE: config.settings
+        TASK_BACKEND: lambda
+        DATABASE_URL: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:connection_string}}'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+  
+  DatabaseSecret:
+    Type: String
+    Description: ARN of Secrets Manager secret containing database credentials
+
+  VpcSubnetIds:
+    Type: CommaDelimitedList
+    Description: Subnet IDs for Lambda VPC configuration
+
+  VpcSecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: Security Group IDs for Lambda VPC configuration
+
+Resources:
+  # =============================================================================
+  # SQS Queue for Task Processing
+  # =============================================================================
+  TaskQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'agms-tasks-${Environment}'
+      VisibilityTimeoutSeconds: 180  # 3x Lambda timeout
+      MessageRetentionPeriod: 1209600  # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt TaskDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  TaskDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'agms-tasks-dlq-${Environment}'
+      MessageRetentionPeriod: 1209600
+
+  # =============================================================================
+  # Lambda Functions
+  # =============================================================================
+  
+  # Django API Handler
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'agms-api-${Environment}'
+      Handler: lambda_handlers.api_handler
+      MemorySize: 1024
+      Timeout: 30
+      VpcConfig:
+        SubnetIds: !Ref VpcSubnetIds
+        SecurityGroupIds: !Ref VpcSecurityGroupIds
+      Environment:
+        Variables:
+          TASK_QUEUE_URL: !Ref TaskQueue
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  # SQS Task Processor
+  TaskWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'agms-task-worker-${Environment}'
+      Handler: lambda_handlers.sqs_task_handler
+      Timeout: 60  # Longer for task processing
+      VpcConfig:
+        SubnetIds: !Ref VpcSubnetIds
+        SecurityGroupIds: !Ref VpcSecurityGroupIds
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt TaskQueue.Arn
+            BatchSize: 1  # Process one task at a time initially
+
+  # Scheduled: Expire Reservations (every 30 minutes)
+  ExpireReservationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'agms-expire-reservations-${Environment}'
+      Handler: lambda_handlers.scheduled_expire_reservations
+      VpcConfig:
+        SubnetIds: !Ref VpcSubnetIds
+        SecurityGroupIds: !Ref VpcSecurityGroupIds
+      Events:
+        Schedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(30 minutes)
+            Description: Expire unpaid reservations
+
+  # Scheduled: Monthly Dues Fan-out (1st of month at midnight)
+  MonthlyDuesFanoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'agms-monthly-dues-fanout-${Environment}'
+      Handler: lambda_handlers.scheduled_monthly_dues_fanout
+      VpcConfig:
+        SubnetIds: !Ref VpcSubnetIds
+        SecurityGroupIds: !Ref VpcSecurityGroupIds
+      Environment:
+        Variables:
+          TASK_QUEUE_URL: !Ref TaskQueue
+      Events:
+        Schedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 0 1 * ? *)  # 00:00 on 1st of each month
+            Description: Generate monthly dues statements
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+
+  TaskQueueUrl:
+    Description: SQS Queue URL for task messages
+    Value: !Ref TaskQueue
+
+  TaskQueueArn:
+    Description: SQS Queue ARN
+    Value: !GetAtt TaskQueue.Arn

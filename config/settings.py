@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     # Third-party
     'storages',
     # Core Apps
+    'apps.core',
     'apps.organizations',
     'apps.identity',
     'apps.registry',
@@ -72,28 +73,34 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgres://user:password@db:5432/agms')
+from config.database import get_database_config
+DATABASES = {
+    'default': get_database_config(BASE_DIR)
+}
 
-# Parse DATABASE_URL
-import re
-db_match = re.match(r'postgres://(?P<user>[^:]+):(?P<password>[^@]+)@(?P<host>[^:]+):(?P<port>\d+)/(?P<name>.+)', DATABASE_URL)
-if db_match:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': db_match.group('name'),
-            'USER': db_match.group('user'),
-            'PASSWORD': db_match.group('password'),
-            'HOST': db_match.group('host'),
-            'PORT': db_match.group('port'),
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+# Lambda-specific optimizations
+IS_LAMBDA = bool(os.getenv('AWS_LAMBDA_FUNCTION_NAME'))
+if IS_LAMBDA:
+    # Disable Django's persistent database connections
+    # RDS Proxy handles connection pooling
+    DATABASES['default']['CONN_MAX_AGE'] = 0
+    
+    # Disable file-based sessions (use DB or cache instead)
+    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+    
+    # Disable logging to files (use CloudWatch instead)
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+            },
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
     }
 
 # Password validation

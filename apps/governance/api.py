@@ -8,7 +8,7 @@ from ninja.security import django_auth
 
 from apps.identity.models import User
 from apps.identity.permissions import Permissions, get_user_permissions
-from apps.ledger.tasks import generate_document_task
+from apps.core.task_service import TaskService
 from .models import DocumentRequest, RequestStatus
 from .dtos import DocumentRequestIn, DocumentRequestOut, RequestApprovalIn
 
@@ -81,8 +81,8 @@ def approve_request(request, request_id: UUID):
     doc_request.approved_by = user
     doc_request.save()
     
-    # Trigger Celery task for PDF generation
-    generate_document_task.delay(doc_request.id)
+    # Trigger async task for PDF generation via TaskService abstraction
+    TaskService.generate_document(doc_request.id)
     
     return doc_request
 

@@ -1,0 +1,24 @@
+# Requirements for AWS Lambda deployment
+# Install these in your Lambda layer or package
+
+# Core Django
+Django>=5.0,<6.0
+django-ninja>=1.0.0,<2.0
+
+# Lambda ASGI adapter
+mangum>=0.17.0
+
+# Database
+psycopg2-binary>=2.9.0
+
+# AWS SDK
+boto3>=1.28.0
+
+# Data Validation
+pydantic>=2.0.0
+
+# PDF Generation (requires Lambda layer with system deps)
+weasyprint>=60.0
+
+# Timezone
+tzdata>=2024.1

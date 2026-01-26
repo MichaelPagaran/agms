@@ -83,13 +83,20 @@ Manage revenue-generating and shared infrastructure facilities:
 ## Tech Stack
 
 - **Backend**: Django 5.x + Django Ninja
-- **Database**: PostgreSQL
-- **Task Queue**: Celery + Redis
+- **Database**: PostgreSQL (RDS + RDS Proxy for Lambda)
+- **Task Queue**: TaskService abstraction
+  - Development: Local sync execution
+  - Docker: Celery + Redis
+  - Production: AWS Lambda + SQS
 - **PDF Generation**: WeasyPrint
-- **File Storage**: django-storages + AWS S3 (optional)
-- **Container**: Docker + Docker Compose
+- **File Storage**: django-storages + AWS S3
+- **Deployment Options**:
+  - Docker Compose (development)
+  - AWS Lambda + API Gateway (production)
 
 ## Quick Start
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment guides.
 
 1. **Clone and setup**:
 
@@ -174,6 +181,35 @@ docker-compose exec backend python manage.py seed_ledger_defaults --all
 
 ## Development (Local)
 
+### Option A: Docker Compose (Full Stack)
+
+Full stack with all services - closest to production behavior:
+
+```bash
+# Terminal 1: Backend (Docker)
+docker-compose up
+
+# Services running:
+# - Backend API:  http://localhost:8000/api/
+# - PostgreSQL:   localhost:5432
+# - Redis:        localhost:6379
+# - Celery Worker + Beat (for scheduled tasks)
+
+# Terminal 2: Frontend (if integrating with dayung)
+cd ../dayung
+npm run dev
+# Frontend: http://localhost:3000
+```
+
+**Pros**: Full Celery/Redis stack works, closest to production  
+**Cons**: Uses more resources (Docker overhead)
+
+---
+
+### Option B: Django Runserver (Lightweight)
+
+For quick iterations without Docker:
+
 1. **Create virtual environment**:
 
    ```bash
@@ -182,18 +218,57 @@ docker-compose exec backend python manage.py seed_ledger_defaults --all
    pip install -r requirements.txt
    ```
 
-2. **Run database migrations**:
+2. **Configure environment** (`.env`):
+
+   ```bash
+   TASK_BACKEND=local    # Tasks run synchronously (no Redis needed)
+   DEBUG=True
+   # DATABASE_URL not set = uses SQLite
+   ```
+
+3. **Run migrations and server**:
 
    ```bash
    python manage.py migrate
    python manage.py createsuperuser
-   ```
-
-3. **Run development server**:
-
-   ```bash
    python manage.py runserver
    ```
+
+**Pros**: Fast startup, low resource usage  
+**Cons**: No Celery (tasks run synchronously), SQLite instead of PostgreSQL
+
+---
+
+### Option C: Hybrid (PostgreSQL + Local Tasks)
+
+For testing database behavior without full Docker stack:
+
+```bash
+# Just the database
+docker-compose up db
+
+# Backend with real PostgreSQL
+DATABASE_URL=postgres://user:password@localhost:5432/agms \
+TASK_BACKEND=local \
+python manage.py runserver
+```
+
+---
+
+### Frontend Integration
+
+When integrating with the `dayung` frontend:
+
+```bash
+# Frontend .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000/api
+```
+
+Switch to production after Lambda deployment:
+
+```bash
+NEXT_PUBLIC_API_URL=https://api.dayung.app
+```
 
 ## Running Tests
 
