@@ -50,9 +50,17 @@ def get_unit_dto(unit_id: UUID) -> Optional[UnitDTO]:
         return None
 
 
-def list_units(org_id: UUID, user_id: UUID = None, view_all: bool = False) -> List[Unit]:
+def list_units(
+    org_id: UUID, 
+    user_id: UUID = None, 
+    view_all: bool = False,
+    search: str = None,
+    section: str = None,
+    occupancy: str = None,
+    membership: str = None,
+) -> List[Unit]:
     """
-    List units.
+    List units with optional search and filtering.
     If view_all is True, return all active units for org.
     If view_all is False, return only units owned by user_id.
     """
@@ -62,7 +70,25 @@ def list_units(org_id: UUID, user_id: UUID = None, view_all: bool = False) -> Li
         if user_id:
             queryset = queryset.filter(owner_id=user_id)
         else:
-            return [] # Should not happen if logic is correct upstream
+            return []  # Should not happen if logic is correct upstream
+    
+    # Apply search filter (searches multiple fields)
+    if search:
+        queryset = queryset.filter(
+            Q(owner_name__icontains=search) |
+            Q(unit_identifier__icontains=search) |
+            Q(section_identifier__icontains=search) |
+            Q(location_name__icontains=search) |
+            Q(resident_name__icontains=search)
+        )
+    
+    # Apply specific filters
+    if section:
+        queryset = queryset.filter(section_identifier=section)
+    if occupancy:
+        queryset = queryset.filter(occupancy_status=occupancy)
+    if membership:
+        queryset = queryset.filter(membership_status=membership)
             
     return list(queryset)
 
@@ -92,3 +118,34 @@ def soft_delete_unit(unit_id: UUID) -> bool:
     except Unit.DoesNotExist:
         return False
 
+
+def get_filter_options(org_id: UUID) -> dict:
+    """
+    Get distinct values for filter dropdowns.
+    Returns available sections, occupancy statuses, and membership statuses.
+    """
+    queryset = Unit.objects.filter(org_id=org_id, is_active=True)
+    
+    sections = list(
+        queryset.values_list('section_identifier', flat=True)
+        .distinct()
+        .order_by('section_identifier')
+    )
+    
+    occupancy = list(
+        queryset.values_list('occupancy_status', flat=True)
+        .distinct()
+        .order_by('occupancy_status')
+    )
+    
+    membership = list(
+        queryset.values_list('membership_status', flat=True)
+        .distinct()
+        .order_by('membership_status')
+    )
+    
+    return {
+        "sections": sections,
+        "occupancy": occupancy,
+        "membership": membership,
+    }

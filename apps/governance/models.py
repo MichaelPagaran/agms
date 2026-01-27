@@ -104,3 +104,35 @@ class DocumentRequest(models.Model):
 
     def __str__(self):
         return f"{self.document_type} requested by {self.requestor} ({self.status})"
+
+
+class AuditLog(models.Model):
+    """
+    Simple audit trail for critical actions like deletion.
+    Keeps a record of who did what and when.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    org_id = models.UUIDField(db_index=True)
+    
+    action = models.CharField(max_length=50, help_text="Action performed (e.g., DELETE_UNIT)")
+    target_type = models.CharField(max_length=50, help_text="Type of object acted on (e.g., Unit)")
+    target_id = models.UUIDField(help_text="ID of the object acted on")
+    target_label = models.CharField(max_length=255, blank=True, help_text="Human-readable label of the object")
+    
+    # Metadata
+    performed_by = models.ForeignKey(
+        'identity.User', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        related_name='audit_logs'
+    )
+    performed_at = models.DateTimeField(auto_now_add=True)
+    context = models.JSONField(default=dict, blank=True, help_text="Additional context/metadata")
+
+    class Meta:
+        ordering = ['-performed_at']
+        verbose_name = "Audit Log"
+        verbose_name_plural = "Audit Logs"
+
+    def __str__(self):
+        return f"{self.action} on {self.target_type} by {self.performed_by}"

@@ -20,3 +20,7 @@ class UnitIn(Schema):
     membership_status: Optional[str] = "GOOD_STANDING"
     occupancy_status: Optional[str] = "INHABITED"
     # is_active handles soft delete, not usually set here unless restoring
+
+class DeleteRequestIn(Schema):
+    unit_ids: list[UUID]
+

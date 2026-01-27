@@ -12,6 +12,7 @@ from django.http import HttpRequest, HttpResponse
 from django.conf import settings
 
 from apps.identity.permissions import Permissions, get_user_permissions
+from apps.governance.models import AuditLog
 from .schemas import (
     IncomeIn, ExpenseIn, TransactionUpdateIn, TransactionVerificationIn,
     BulkPaymentIn, PreviewBreakdownIn, CategoryIn, DiscountConfigIn,
@@ -220,6 +221,30 @@ def list_transactions(
         unit_id=unit_id,
         limit=limit,
     )
+    
+    # Log audit
+    try:
+        AuditLog.objects.create(
+            org_id=org_id,
+            action="VIEW_LEDGER",
+            target_type="TransactionList",
+            target_id=org_id,
+            target_label=f"Ledger View ({len(transactions)} items)",
+            performed_by=request.user,
+            context={
+                "filters": {
+                    "start_date": str(start_date) if start_date else None,
+                    "end_date": str(end_date) if end_date else None,
+                    "category_id": str(category_id) if category_id else None,
+                    "transaction_type": transaction_type,
+                    "status": status,
+                    "unit_id": str(unit_id) if unit_id else None,
+                }
+            }
+        )
+    except Exception:
+        # Don't fail the request if logging fails
+        pass
     
     return [
         TransactionOut(

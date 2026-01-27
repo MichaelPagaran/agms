@@ -5,3 +5,7 @@ class IdentityConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.identity'
     verbose_name = 'Identity & Auth'
+
+    def ready(self):
+        import apps.identity.signals
+
