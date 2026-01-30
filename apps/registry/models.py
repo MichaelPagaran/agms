@@ -32,6 +32,10 @@ class Unit(models.Model):
     unit_identifier = models.CharField(max_length=50, help_text="Lot or Unit")
     location_name = models.CharField(max_length=100, help_text="Street or Building Name", blank=True)
     
+    # Map Coordinates
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    
     category = models.CharField(
         max_length=20,
         choices=UnitCategory.choices,

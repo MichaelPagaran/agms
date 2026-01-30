@@ -22,6 +22,77 @@ class RequestStatus(models.TextChoices):
     APPROVED = 'APPROVED', 'Approved'
     REJECTED = 'REJECTED', 'Rejected'
     GENERATED = 'GENERATED', 'Generated'
+    CANCELLED = 'CANCELLED', 'Cancelled'
+
+
+class RequestType(models.TextChoices):
+    # Documents (Transparency Portal)
+    DOC_ACCESS = 'DOC_ACCESS', 'Document Access'
+    
+    # Onboarding
+    MEMBERSHIP = 'MEMBERSHIP', 'Membership Request' # Future public endpoint
+    UNIT_CLAIM = 'UNIT_CLAIM', 'Unit Claim' # Future self-claim
+    
+    # Other
+    OTHER = 'OTHER', 'Other Request'
+
+
+class ServiceRequest(models.Model):
+    """
+    Unified request management system.
+    Replaces specific request models (like DocumentRequest) over time.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    org_id = models.UUIDField(db_index=True)
+    
+    request_type = models.CharField(
+        max_length=20,
+        choices=RequestType.choices,
+        default=RequestType.OTHER
+    )
+    
+    # Requestor Info
+    requester = models.ForeignKey(
+        'identity.User', 
+        on_delete=models.CASCADE, 
+        related_name='service_requests',
+        null=True, # Nullable for public requests (pre-registration) in future
+        blank=True
+    )
+    requester_email = models.EmailField(blank=True, null=True, help_text="For non-user requests")
+    
+    # Flexible Payload
+    payload = models.JSONField(
+        default=dict,
+        help_text="Dynamic parameters (e.g., doc_type, date_range, unit_id)"
+    )
+    
+    # Workflow
+    status = models.CharField(
+        max_length=20,
+        choices=RequestStatus.choices,
+        default=RequestStatus.PENDING
+    )
+    review_notes = models.TextField(blank=True, help_text="Reason for rejection/approval notes")
+    reviewed_by = models.ForeignKey(
+        'identity.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_requests'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Service Request"
+        verbose_name_plural = "Service Requests"
+
+    def __str__(self):
+        return f"{self.request_type} - {self.status} ({self.created_at.date()})"
 
 
 class GovernanceDocument(models.Model):
