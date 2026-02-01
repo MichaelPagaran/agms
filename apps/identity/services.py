@@ -12,7 +12,7 @@ def get_user_dto(user_id) -> UserDTO | None:
             username=user.username,
             email=user.email,
             role=user.role,
-            org_id=user.org_id,
+            org_id=user.org_id_id,
             is_active=user.is_active,
             permissions=get_user_permissions(user),
         )
