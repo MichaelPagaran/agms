@@ -6,8 +6,19 @@ class Command(BaseCommand):
     help = 'Seeds the database with RBAC test users'
 
     def handle(self, *args, **options):
-        # Fake Org ID for testing
-        test_org_id = uuid.uuid4()
+        # Create a real Organization for testing
+        from apps.organizations.models import Organization, OrganizationType
+        
+        org, _ = Organization.objects.get_or_create(
+            name="Sunrise Subdivision",
+            defaults={
+                'org_type': OrganizationType.SUBDIVISION,
+                'address': '123 Main St, Manila',
+                'is_active': True
+            }
+        )
+        test_org_id = org.id
+        self.stdout.write(f"Using Organization: {org.name} ({org.id})")
         
         users = [
             {
@@ -55,9 +66,9 @@ class Command(BaseCommand):
             user.first_name = u.get('first_name', '')
             user.last_name = u.get('last_name', '')
             user.phone_number = u.get('phone_number', '')
-            # Set org_id if not set (or always set for test consistency)
+            # Set org if not set (or always set for test consistency)
             if not user.org_id:
-                user.org_id = test_org_id
+                user.org = org
             if u['role'] == UserRole.ADMIN:
                 user.is_staff = True
                 user.is_superuser = True

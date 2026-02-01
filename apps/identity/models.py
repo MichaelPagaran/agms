@@ -16,8 +16,14 @@ class User(AbstractUser):
     Custom User model with organization relationship for multi-tenancy.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # Store org_id as UUID field (no FK to maintain app independence)
-    org_id = models.UUIDField(null=True, blank=True, db_index=True)
+    # Store org_id as ForeignKey (String reference to avoid circular import)
+    org_id = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        null=True, 
+        blank=True,
+        related_name='users'
+    )
     role = models.CharField(
         max_length=20,
         choices=UserRole.choices,

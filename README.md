@@ -137,6 +137,31 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment guides.
 
 ## Management Commands
 
+### Database Seeder (Unified)
+
+The `seed` command is the main tool for populating the database with sample data for testing. It can seed all apps or specific components.
+
+```bash
+# Run via shell script wrapper (recommended)
+./scripts/seed_db.sh --clean
+
+# Or directly via manage.py
+python manage.py seed --clean
+
+# Run in Docker
+docker-compose exec backend python manage.py seed --clean
+```
+
+**Options:**
+- `--clean`: Delete existing data before seeding (Destructive!)
+- `--users`: Seed users and organizations only
+- `--registry`: Seed registry units only
+- `--assets`: Seed assets only
+- `--ledger`: Seed ledger categories and transactions only
+- `--reservations`: Seed reservations only
+
+**(No flags = Seed ALL)**
+
 ### User Seeder (Identity)
 
 ```bash
