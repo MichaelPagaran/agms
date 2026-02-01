@@ -11,31 +11,37 @@ from django.http import HttpRequest
 
 from apps.identity.api import get_current_user, require_auth
 from apps.identity.permissions import Permissions, get_user_permissions
+from django.http import HttpRequest
+from ninja import Router
+
+from apps.identity.decorators import has_permission
+from apps.identity.permissions import Permissions
+from apps.identity.api import require_auth
 from apps.governance.models import AuditLog
 from .models import Unit
 from .dtos import UnitOut, UnitIn, DeleteRequestIn
-from .services import list_units, create_unit, update_unit, soft_delete_unit, get_filter_options
+from .services import list_units, create_unit, update_unit, soft_delete_unit, get_filter_options, get_unit_for_user
 
 router = Router(tags=["Registry"])
 
 @router.post("/bulk-delete", auth=None)
+@has_permission(Permissions.REGISTRY_MANAGE_UNIT)
 def bulk_delete_units_api(request: HttpRequest, payload: DeleteRequestIn):
     """
     Bulk soft delete units and create audit logs.
     """
-    user = require_auth(request)
-    perms = get_user_permissions(user)
+    user = request.user
     
-    if Permissions.REGISTRY_MANAGE_UNIT not in perms:
-        raise HttpError(403, "Permission denied")
+    if not user.org_id_id:
+        raise HttpError(400, "User has no organization context")
         
-    if not user.org_id:
+    if not user.org_id_id:
         raise HttpError(400, "User has no organization context")
 
     deleted_count = 0
     
     # Process deletions
-    units = Unit.objects.filter(id__in=payload.unit_ids, org_id=user.org_id, is_active=True)
+    units = Unit.objects.filter(id__in=payload.unit_ids, org_id=user.org_id_id, is_active=True)
     
     for unit in units:
         # Soft delete
@@ -45,7 +51,7 @@ def bulk_delete_units_api(request: HttpRequest, payload: DeleteRequestIn):
         
         # Log audit
         AuditLog.objects.create(
-            org_id=user.org_id,
+            org_id=user.org_id_id,
             action="DELETE_UNIT",
             target_type="Unit",
             target_id=unit.id,
@@ -57,7 +63,6 @@ def bulk_delete_units_api(request: HttpRequest, payload: DeleteRequestIn):
     return {"deleted": deleted_count}
 
 
-
 @router.get("/filter-options", auth=None)
 def get_filter_options_api(request: HttpRequest):
     """
@@ -66,10 +71,10 @@ def get_filter_options_api(request: HttpRequest):
     """
     user = require_auth(request)
     
-    if not user.org_id:
+    if not user.org_id_id:
         return {"sections": [], "occupancy": [], "membership": []}
     
-    return get_filter_options(user.org_id)
+    return get_filter_options(user.org_id_id)
 
 
 @router.get("", response=List[UnitOut], auth=None)
@@ -97,11 +102,11 @@ def get_units(
     
     can_view_all = Permissions.REGISTRY_VIEW_ALL_UNITS in perms
     
-    if not user.org_id:
+    if not user.org_id_id:
         return []
     
     return list_units(
-        user.org_id, 
+        user.org_id_id, 
         user.id, 
         view_all=can_view_all,
         search=search,
@@ -111,37 +116,52 @@ def get_units(
     )
 
 
+@router.get("/{unit_id}", response=UnitOut, auth=None)
+def get_unit_api(request: HttpRequest, unit_id: UUID):
+    """
+    Get details of a single unit.
+    """
+    user = require_auth(request)
+    perms = get_user_permissions(user)
+    
+    if not user.org_id_id:
+        raise HttpError(404, "Unit not found")
+        
+    can_view_all = Permissions.REGISTRY_VIEW_ALL_UNITS in perms
+    
+    unit = get_unit_for_user(unit_id, user.org_id_id, user.id, view_all=can_view_all)
+    
+    if not unit:
+        raise HttpError(404, "Unit not found")
+        
+    return unit
+
+
+
 @router.post("", response=UnitOut, auth=None)
+@has_permission(Permissions.REGISTRY_MANAGE_UNIT)
 def create_unit_api(request: HttpRequest, payload: UnitIn):
     """
     Create a new unit in the organization.
     
     Requires REGISTRY_MANAGE_UNIT permission.
     """
-    user = require_auth(request)
-    perms = get_user_permissions(user)
-    
-    if Permissions.REGISTRY_MANAGE_UNIT not in perms:
-        raise HttpError(403, "Permission denied")
-
-    if not user.org_id:
+    user = request.user
+    if not user.org_id_id:
         raise HttpError(400, "User has no organization context")
 
-    return create_unit(user.org_id, payload)
+    return create_unit(user.org_id_id, payload)
 
 
 @router.put("/{unit_id}", response=UnitOut, auth=None)
+@has_permission(Permissions.REGISTRY_MANAGE_UNIT)
 def update_unit_api(request: HttpRequest, unit_id: UUID, payload: UnitIn):
     """
     Update an existing unit.
     
     Requires REGISTRY_MANAGE_UNIT permission.
     """
-    user = require_auth(request)
-    perms = get_user_permissions(user)
-    
-    if Permissions.REGISTRY_MANAGE_UNIT not in perms:
-        raise HttpError(403, "Permission denied")
+
 
     unit = update_unit(unit_id, payload)
     if not unit:
@@ -150,17 +170,14 @@ def update_unit_api(request: HttpRequest, unit_id: UUID, payload: UnitIn):
 
 
 @router.delete("/{unit_id}", response={204: None}, auth=None)
+@has_permission(Permissions.REGISTRY_MANAGE_UNIT)
 def delete_unit_api(request: HttpRequest, unit_id: UUID):
     """
     Soft delete a unit.
     
     Requires REGISTRY_MANAGE_UNIT permission.
     """
-    user = require_auth(request)
-    perms = get_user_permissions(user)
-    
-    if Permissions.REGISTRY_MANAGE_UNIT not in perms:
-        raise HttpError(403, "Permission denied")
+    # Authorization handled by decorator
         
     success = soft_delete_unit(unit_id)
     if not success:

@@ -5,3 +5,6 @@ class RegistryConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.registry'
     verbose_name = 'Unit Registry'
+
+    def ready(self):
+        import apps.registry.signals

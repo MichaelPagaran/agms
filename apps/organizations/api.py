@@ -5,8 +5,8 @@ from ninja.errors import HttpError
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
+from apps.identity.decorators import has_permission
 from apps.identity.permissions import Permissions
-from apps.identity.security import has_permission
 from .models import Organization
 from .dtos import OrganizationOut, OrganizationIn, OnboardingRequest, OnboardingResponse
 from .services import onboard_organization
@@ -27,55 +27,45 @@ def create_onboard(request: HttpRequest, payload: OnboardingRequest):
     return onboard_organization(payload)
 
 @router.post("", response=OrganizationOut, auth=None)
+@has_permission(Permissions.ORGANIZATION_MANAGE)
 def create_organization(request: HttpRequest, payload: OrganizationIn):
-    if not request.user.is_authenticated:
-        raise HttpError(401, "Unauthorized")
-        
-    # Strictly for users with Manage Org permission
-    from apps.identity.permissions import get_user_permissions
-    perms = get_user_permissions(request.user)
-    if Permissions.ORGANIZATION_MANAGE not in perms:
-        raise HttpError(403, "Permission denied")
-
+    # Only super-admins should be able to create arbitrary organizations manually
+    # But for now we just stick to permission check
     org = Organization.objects.create(**payload.dict())
     return org
 
 @router.get("", response=List[OrganizationOut], auth=None)
+@has_permission(Permissions.ORGANIZATION_MANAGE)
 def list_organizations(request: HttpRequest):
-    if not request.user.is_authenticated:
-        raise HttpError(401, "Unauthorized")
-
-    from apps.identity.permissions import get_user_permissions
-    perms = get_user_permissions(request.user)
-    if Permissions.ORGANIZATION_MANAGE not in perms:
-        raise HttpError(403, "Permission denied")
-
-    return list(Organization.objects.all())
+    # If superuser or platform admin, show all
+    # For Tenant Admin, only show their own organization
+    if request.user.is_superuser:
+        return list(Organization.objects.all())
+    
+    if request.user.org_id_id:
+        return list(Organization.objects.filter(id=request.user.org_id_id))
+        
+    return []
 
 @router.get("/{org_id}", response=OrganizationOut, auth=None)
+@has_permission(Permissions.ORGANIZATION_MANAGE)
 def get_organization(request: HttpRequest, org_id: UUID):
-    if not request.user.is_authenticated:
-        raise HttpError(401, "Unauthorized")
-        
-    # TODO: Allow Tenant Admin to see OWN org?
-    # For now, restrict to Manage Org permission
-    from apps.identity.permissions import get_user_permissions
-    perms = get_user_permissions(request.user)
-    if Permissions.ORGANIZATION_MANAGE not in perms:
-        raise HttpError(403, "Permission denied")
+    # Enforce strict tenant isolation:
+    # Users can only view their own organization, unless they are superusers
+    if not request.user.is_superuser:
+        if request.user.org_id_id != org_id:
+             raise HttpError(403, "Permission denied: Cannot view other organizations")
         
     return get_object_or_404(Organization, id=org_id)
 
 @router.put("/{org_id}", response=OrganizationOut, auth=None)
+@has_permission(Permissions.ORGANIZATION_MANAGE)
 def update_organization(request: HttpRequest, org_id: UUID, payload: OrganizationIn):
-    if not request.user.is_authenticated:
-        raise HttpError(401, "Unauthorized")
+    # Enforce strict tenant isolation
+    if not request.user.is_superuser:
+        if request.user.org_id_id != org_id:
+             raise HttpError(403, "Permission denied: Cannot update other organizations")
 
-    from apps.identity.permissions import get_user_permissions
-    perms = get_user_permissions(request.user)
-    if Permissions.ORGANIZATION_MANAGE not in perms:
-        raise HttpError(403, "Permission denied")
-    
     org = get_object_or_404(Organization, id=org_id)
     for attr, value in payload.dict().items():
         setattr(org, attr, value)

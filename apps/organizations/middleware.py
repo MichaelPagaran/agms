@@ -32,15 +32,15 @@ class TenantMiddleware(MiddlewareMixin):
                 except ValueError:
                     logger.warning(f"Invalid X-Organization-ID header: {header_org}")
                     # Fallback to user's org if any, or None
-                    request.org_id = user.org_id
+                    request.org_id = user.org_id_id
             else:
                  # Default to user's org or None (Super Admin might not belong to one)
-                 request.org_id = user.org_id
+                 request.org_id = user.org_id_id
             return
 
         # 2. Regular User Enforced Context
         if hasattr(user, 'org_id'):
-            request.org_id = user.org_id
+            request.org_id = user.org_id_id
             
     def process_view(self, request, view_func, view_args, view_kwargs):
         """

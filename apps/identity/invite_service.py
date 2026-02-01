@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from .models import UserInvite, InviteStatus, User, UserRole
 from .services import create_user
 from .dtos import UserCreate
-from apps.registry.services import update_unit, UnitIn
+from .signals import user_accepted_invite
 
 logger = logging.getLogger(__name__)
 
@@ -85,31 +85,16 @@ class InviteService:
             )
         )
         
-        # Link Unit if applicable
-        if invite.unit_id:
-            logger.info(f"Linking User {user_dto.id} to Unit {invite.unit_id}")
-            # We need to call registry service to link
-            # Note: We need to import properly to avoid circular deps if they exist
-            # Using the service function imported at top
-            try:
-                # We fetch the unit just to integrity check or just update it
-                # The generic update_unit expects a payload
-                # We'll just update owner_id
-                
-                # Construct payload compatible with UnitIn
-                # We need to fetch current unit data to not overwrite? 
-                # actually update_unit only updates fields present in payload usually?
-                # Check apps.registry.services.update_unit implementation
-                pass 
-                
-                from apps.registry.models import Unit
-                unit = Unit.objects.get(id=invite.unit_id)
-                unit.owner_id = user_dto.id
-                unit.save()
-                
-            except Exception as e:
-                logger.error(f"Failed to link unit: {e}")
-                # We don't fail the user creation, just log error
+        # Send signal for other apps (like Registry) to handle linking or setup
+        try:
+            user_accepted_invite.send(
+                sender=InviteService,
+                user=User.objects.get(id=user_dto.id),
+                invite=invite
+            )
+        except Exception as e:
+            logger.error(f"Error handling user_accepted_invite signal: {e}")
+
         
         # Mark Accepted
         invite.status = InviteStatus.ACCEPTED

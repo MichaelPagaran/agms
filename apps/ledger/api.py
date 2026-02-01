@@ -55,9 +55,9 @@ def require_permission(request: HttpRequest, permission: str):
 
 def get_org_id(request: HttpRequest) -> UUID:
     """Get organization ID from authenticated user."""
-    if not request.user.org_id:
+    if not request.user.org_id_id:
         raise HttpError(400, "User has no organization context")
-    return request.user.org_id
+    return request.user.org_id_id
 
 
 # =============================================================================

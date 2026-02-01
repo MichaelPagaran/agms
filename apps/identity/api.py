@@ -103,7 +103,7 @@ def login_user(request: HttpRequest, payload: LoginSchema):
         raise HttpError(401, "Account is disabled")
     
     # Create JWT tokens
-    access_token, refresh_token = create_token_pair(user.id, user.org_id)
+    access_token, refresh_token = create_token_pair(user.id, user.org_id_id)
     
     # Create response with user data
     user_dto = get_user_dto(user.id)
@@ -166,7 +166,7 @@ def refresh_token(request: HttpRequest):
         raise HttpError(401, "Invalid refresh token")
     
     # Create new access token
-    new_access_token = create_access_token(user.id, user.org_id)
+    new_access_token = create_access_token(user.id, user.org_id_id)
     
     user_dto = get_user_dto(user.id)
     response = HttpResponse(
@@ -211,7 +211,7 @@ def create_org_user(request: HttpRequest, payload: UserCreate):
     if Permissions.IDENTITY_MANAGE_USER not in perms:
         raise HttpError(403, "Permission denied")
 
-    return create_user(user.org_id, payload)
+    return create_user(user.org_id_id, payload)
 
 
 @router.get("/users", response=List[UserDTO], auth=None)
@@ -227,7 +227,7 @@ def list_org_users(request: HttpRequest):
     if Permissions.IDENTITY_VIEW_USER not in perms:
         raise HttpError(403, "Permission denied")
 
-    return list_users(user.org_id)
+    return list_users(user.org_id_id)
 
 
 @router.put("/users/{user_id}", response=UserDTO, auth=None)
@@ -245,7 +245,7 @@ def update_org_user(request: HttpRequest, user_id: UUID, payload: UserUpdate):
 
     # Ensure target user belongs to same org
     target_user = get_user_dto(user_id)
-    if not target_user or target_user.org_id != user.org_id:
+    if not target_user or target_user.org_id != user.org_id_id:
         raise HttpError(404, "User not found")
 
     updated = update_user(user_id, payload.dict(exclude_unset=True))

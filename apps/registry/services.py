@@ -92,6 +92,20 @@ def list_units(
             
     return list(queryset)
 
+
+def get_unit_for_user(unit_id: UUID, org_id: UUID, user_id: UUID, view_all: bool = False) -> Optional[Unit]:
+    """
+    Get a single unit with permission checks.
+    """
+    try:
+        queryset = Unit.objects.filter(org_id=org_id, id=unit_id, is_active=True)
+        if not view_all:
+             queryset = queryset.filter(owner_id=user_id)
+        
+        return queryset.get()
+    except Unit.DoesNotExist:
+        return None
+
 def create_unit(org_id: UUID, payload: UnitIn) -> Unit:
     unit = Unit.objects.create(
         org_id=org_id,
