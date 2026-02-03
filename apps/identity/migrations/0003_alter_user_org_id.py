@@ -4,6 +4,15 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+
+def cleanup_invalid_org_ids(apps, schema_editor):
+    User = apps.get_model('identity', 'User')
+    Organization = apps.get_model('organizations', 'Organization')
+    # Get all valid organization IDs
+    valid_org_ids = Organization.objects.values_list('id', flat=True)
+    # Set org_id to None for users whose org_id is not in the valid list
+    User.objects.exclude(org_id__in=valid_org_ids).exclude(org_id__isnull=True).update(org_id=None)
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -12,6 +21,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(cleanup_invalid_org_ids),
+
         migrations.AlterField(
             model_name='user',
             name='org_id',

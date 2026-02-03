@@ -15,6 +15,7 @@ class AssetIn(Schema):
     name: str
     asset_type: str = 'REVENUE'
     description: str = ""
+    image_url: Optional[str] = None
     rental_rate: Optional[Decimal] = None
     capacity: Optional[int] = None
     location: str = ""
@@ -64,6 +65,11 @@ class ReservationConfigIn(Schema):
     min_advance_hours: int = 0
 
 
+class BulkDeleteIn(Schema):
+    """Schema for bulk delete operations."""
+    asset_ids: List[UUID]
+
+
 # =============================================================================
 # Response Schemas
 # =============================================================================
@@ -74,6 +80,7 @@ class AssetOut(Schema):
     name: str
     asset_type: str
     description: str
+    image_url: Optional[str]
     rental_rate: Optional[Decimal]
     capacity: Optional[int]
     location: str

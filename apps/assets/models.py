@@ -24,6 +24,11 @@ class Asset(models.Model):
         default=AssetType.SHARED
     )
     description = models.TextField(blank=True)
+    image_url = models.URLField(
+        max_length=500,
+        null=True, blank=True,
+        help_text="URL to asset image (e.g., S3 bucket URL)"
+    )
     rental_rate = models.DecimalField(
         max_digits=10, decimal_places=2,
         null=True, blank=True,

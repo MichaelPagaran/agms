@@ -149,11 +149,30 @@ def get_asset_dto(asset_id: UUID) -> Optional[AssetDTO]:
         return None
 
 
-def list_assets(org_id: UUID, include_inactive: bool = False) -> List[AssetDTO]:
-    """List all assets for an organization."""
+def list_assets(
+    org_id: UUID,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    asset_type: Optional[str] = None,
+) -> List[AssetDTO]:
+    """
+    List all assets for an organization.
+    Supports search by name/description and filter by asset_type.
+    """
     queryset = Asset.objects.filter(org_id=org_id)
     if not include_inactive:
         queryset = queryset.filter(is_active=True)
+    
+    # Search filter (supports debounced client-side search)
+    if search:
+        queryset = queryset.filter(
+            Q(name__icontains=search) | Q(description__icontains=search)
+        )
+    
+    # Asset type filter
+    if asset_type:
+        queryset = queryset.filter(asset_type=asset_type)
+    
     return [_asset_to_dto(a) for a in queryset]
 
 
@@ -164,6 +183,7 @@ def create_asset(org_id: UUID, data) -> AssetDTO:
         name=data.name,
         asset_type=data.asset_type,
         description=data.description,
+        image_url=data.image_url,
         rental_rate=data.rental_rate,
         capacity=data.capacity,
         location=data.location,
@@ -179,7 +199,7 @@ def update_asset(asset_id: UUID, data) -> Optional[AssetDTO]:
     """Update an existing asset."""
     try:
         asset = Asset.objects.get(id=asset_id)
-        for field in ['name', 'asset_type', 'description', 'rental_rate', 
+        for field in ['name', 'asset_type', 'description', 'image_url', 'rental_rate', 
                       'capacity', 'location', 'requires_deposit', 'deposit_amount',
                       'min_duration_hours', 'max_duration_hours']:
             if hasattr(data, field):
@@ -199,6 +219,15 @@ def soft_delete_asset(asset_id: UUID) -> bool:
         return True
     except Asset.DoesNotExist:
         return False
+
+
+def bulk_delete_assets(asset_ids: List[UUID]) -> int:
+    """
+    Bulk soft-delete assets.
+    Returns count of deleted assets.
+    """
+    count = Asset.objects.filter(id__in=asset_ids).update(is_active=False)
+    return count
 
 
 # =============================================================================
@@ -799,6 +828,7 @@ def _asset_to_dto(asset: Asset) -> AssetDTO:
         name=asset.name,
         asset_type=asset.asset_type,
         description=asset.description,
+        image_url=asset.image_url,
         rental_rate=asset.rental_rate,
         capacity=asset.capacity,
         location=asset.location,

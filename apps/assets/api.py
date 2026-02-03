@@ -15,7 +15,7 @@ from .schemas import (
     AssetIn, AssetOut, AssetWithAnalyticsOut, AssetTransactionOut,
     ReservationIn, ReservationOut, ReservationPreviewIn, ReservationBreakdownOut,
     ReservationPaymentIn, CancellationIn, AvailabilitySlotOut, DiscountPreviewOut,
-    ReservationConfigIn, ReservationConfigOut,
+    ReservationConfigIn, ReservationConfigOut, BulkDeleteIn,
 )
 
 router = Router(tags=["Assets"])
@@ -56,11 +56,21 @@ def is_homeowner(request: HttpRequest) -> bool:
 # =============================================================================
 
 @router.get("/", response=List[AssetOut], auth=None)
-def list_assets(request: HttpRequest):
-    """List all assets. Requires ASSET_VIEW permission."""
+def list_assets(
+    request: HttpRequest,
+    search: Optional[str] = None,
+    asset_type: Optional[str] = None,
+):
+    """
+    List all assets. Requires ASSET_VIEW permission.
+    
+    Query params:
+    - search: Search by name or description (supports debounced frontend search)
+    - asset_type: Filter by REVENUE or SHARED
+    """
     require_permission(request, Permissions.ASSET_VIEW)
     org_id = get_org_id(request)
-    assets = services.list_assets(org_id)
+    assets = services.list_assets(org_id, search=search, asset_type=asset_type)
     return [AssetOut(**a.__dict__) for a in assets]
 
 
@@ -101,6 +111,14 @@ def delete_asset(request: HttpRequest, asset_id: UUID):
     if not success:
         raise HttpError(404, "Asset not found")
     return 204, None
+
+
+@router.post("/bulk-delete", response=dict, auth=None)
+def bulk_delete_assets(request: HttpRequest, payload: BulkDeleteIn):
+    """Bulk soft-delete assets. Requires ASSET_MANAGE permission."""
+    require_permission(request, Permissions.ASSET_MANAGE)
+    count = services.bulk_delete_assets(payload.asset_ids)
+    return {"deleted": count}
 
 
 # =============================================================================

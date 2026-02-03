@@ -14,6 +14,7 @@ class AssetDTO:
     name: str
     asset_type: str
     description: str
+    image_url: Optional[str]
     rental_rate: Optional[Decimal]
     capacity: Optional[int]
     location: str

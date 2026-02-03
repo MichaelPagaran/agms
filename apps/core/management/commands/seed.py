@@ -198,29 +198,86 @@ class Command(BaseCommand):
         
         assets = [
             {
-                'name': 'Clubhouse',
+                'name': 'Swimming Pool',
                 'asset_type': AssetType.REVENUE,
-                'description': 'Main community clubhouse for events',
-                'rental_rate': Decimal('1000.00'),
-                'capacity': 100,
+                'description': 'Olympic-size swimming pool with lifeguard on duty',
+                'image_url': 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=800',
+                'rental_rate': Decimal('200.00'),
+                'capacity': 50,
                 'requires_deposit': True,
-                'deposit_amount': Decimal('500.00')
+                'deposit_amount': Decimal('500.00'),
+                'location': 'Near Main Gate'
+            },
+            {
+                'name': 'Pickleball Court',
+                'asset_type': AssetType.REVENUE,
+                'description': 'Professional grade pickleball court with lighting',
+                'image_url': 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800',
+                'rental_rate': Decimal('200.00'),
+                'capacity': 8,
+                'requires_deposit': False,
+                'location': 'Sports Complex'
             },
             {
                 'name': 'Basketball Court',
                 'asset_type': AssetType.REVENUE,
-                'description': 'Covered basketball court',
+                'description': 'Covered basketball court with bleachers',
+                'image_url': 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800',
                 'rental_rate': Decimal('200.00'),
                 'capacity': 20,
-                'requires_deposit': False
+                'requires_deposit': False,
+                'location': 'Sports Complex'
+            },
+            {
+                'name': 'Function Hall',
+                'asset_type': AssetType.REVENUE,
+                'description': 'Air-conditioned function hall for events and gatherings',
+                'image_url': 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
+                'rental_rate': Decimal('1000.00'),
+                'capacity': 150,
+                'requires_deposit': True,
+                'deposit_amount': Decimal('2000.00'),
+                'location': 'Clubhouse Building'
+            },
+            {
+                'name': 'Tennis Court',
+                'asset_type': AssetType.REVENUE,
+                'description': 'Professional tennis court with night lighting',
+                'image_url': 'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?w=800',
+                'rental_rate': Decimal('200.00'),
+                'capacity': 4,
+                'requires_deposit': False,
+                'location': 'Sports Complex'
+            },
+            {
+                'name': 'Volleyball Court',
+                'asset_type': AssetType.REVENUE,
+                'description': 'Outdoor volleyball court with sand surface',
+                'image_url': 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=800',
+                'rental_rate': Decimal('150.00'),
+                'capacity': 12,
+                'requires_deposit': False,
+                'location': 'Beach Area'
             },
             {
                 'name': 'Main Gate',
                 'asset_type': AssetType.SHARED,
-                'description': 'Main entrance gate',
+                'description': 'Main entrance gate with 24/7 security',
+                'image_url': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800',
                 'rental_rate': None,
                 'capacity': None,
-                'requires_deposit': False
+                'requires_deposit': False,
+                'location': 'Main Entrance'
+            },
+            {
+                'name': 'Playground',
+                'asset_type': AssetType.SHARED,
+                'description': 'Children\'s playground with modern equipment',
+                'image_url': 'https://images.unsplash.com/photo-1575783970733-1aaedde1db74?w=800',
+                'rental_rate': None,
+                'capacity': 30,
+                'requires_deposit': False,
+                'location': 'Central Park'
             }
         ]
         
