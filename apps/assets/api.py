@@ -173,6 +173,8 @@ def get_assets_analytics(request: HttpRequest):
             id=a.asset_id,
             name=a.asset_name,
             asset_type=a.asset_type,
+            image_url=a.image_url,
+            capacity=a.capacity,
             rental_rate=a.rental_rate,
             income_this_month=a.income_this_month,
             expenses_this_month=a.expenses_this_month,

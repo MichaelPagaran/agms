@@ -281,6 +281,8 @@ def get_assets_with_analytics(org_id: UUID) -> List[AssetAnalyticsDTO]:
             asset_id=asset.id,
             asset_name=asset.name,
             asset_type=asset.asset_type,
+            image_url=asset.image_url,
+            capacity=asset.capacity,
             rental_rate=asset.rental_rate,
             income_this_month=income,
             expenses_this_month=expenses,

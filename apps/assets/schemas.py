@@ -96,6 +96,8 @@ class AssetWithAnalyticsOut(Schema):
     id: UUID
     name: str
     asset_type: str
+    image_url: Optional[str]
+    capacity: Optional[int]
     rental_rate: Optional[Decimal]
     income_this_month: Decimal
     expenses_this_month: Decimal
