@@ -104,6 +104,8 @@ def get_reservation_config(org_id: UUID) -> Optional[ReservationConfigDTO]:
             expiration_hours=config.expiration_hours,
             allow_same_day_booking=config.allow_same_day_booking,
             min_advance_hours=config.min_advance_hours,
+            operating_hours_start=str(config.operating_hours_start)[:5],
+            operating_hours_end=str(config.operating_hours_end)[:5],
             is_active=config.is_active,
         )
     except ReservationConfig.DoesNotExist:
@@ -132,6 +134,8 @@ def create_or_update_reservation_config(
         expiration_hours=config.expiration_hours,
         allow_same_day_booking=config.allow_same_day_booking,
         min_advance_hours=config.min_advance_hours,
+        operating_hours_start=str(config.operating_hours_start)[:5],
+        operating_hours_end=str(config.operating_hours_end)[:5],
         is_active=config.is_active,
     )
 
@@ -324,6 +328,7 @@ def get_asset_transactions(
             amount=t.net_amount,
             category=t.category,
             description=t.description,
+            payment_method=t.payment_method,
             transaction_date=t.transaction_date,
             reservation_id=_get_reservation_for_transaction(t.id),
             created_at=t.created_at,

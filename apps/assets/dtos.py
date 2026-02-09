@@ -48,6 +48,7 @@ class AssetTransactionDTO:
     amount: Decimal
     category: str
     description: str
+    payment_method: str
     transaction_date: date
     reservation_id: Optional[UUID]  # For rental income
     created_at: datetime
@@ -122,4 +123,6 @@ class ReservationConfigDTO:
     expiration_hours: int
     allow_same_day_booking: bool
     min_advance_hours: int
+    operating_hours_start: str
+    operating_hours_end: str
     is_active: bool

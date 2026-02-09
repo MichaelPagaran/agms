@@ -93,6 +93,16 @@ class ReservationConfig(models.Model):
         help_text="Minimum hours in advance to book (0 = no limit)"
     )
     
+    # Operating hours for facility availability
+    operating_hours_start = models.TimeField(
+        default='09:00',
+        help_text="Start of operating hours (e.g., 09:00)"
+    )
+    operating_hours_end = models.TimeField(
+        default='22:00',
+        help_text="End of operating hours (e.g., 22:00)"
+    )
+    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

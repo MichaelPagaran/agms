@@ -40,6 +40,15 @@ class CreditTransactionType(models.TextChoices):
     ADJUSTMENT = 'ADJUSTMENT', 'Manual Adjustment'
 
 
+class PaymentMethod(models.TextChoices):
+    """Payment methods for transactions."""
+    CASH = 'CASH', 'Cash'
+    BANK_TRANSFER = 'BANK_TRANSFER', 'Bank Transfer'
+    GCASH = 'GCASH', 'GCash'
+    CHECK = 'CHECK', 'Check'
+    OTHER = 'OTHER', 'Other'
+
+
 class DuesStatementStatus(models.TextChoices):
     """Status of monthly dues statements."""
     UNPAID = 'UNPAID', 'Unpaid'
@@ -133,6 +142,12 @@ class Transaction(models.Model):
         blank=True, 
         null=True,
         help_text="External reference (OR number, check number, etc.)"
+    )
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.CASH,
+        help_text="Method of payment"
     )
     receipt_image = models.URLField(blank=True, null=True)  # Legacy field
     

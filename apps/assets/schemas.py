@@ -63,6 +63,8 @@ class ReservationConfigIn(Schema):
     expiration_hours: int = 48
     allow_same_day_booking: bool = True
     min_advance_hours: int = 0
+    operating_hours_start: str = "09:00"
+    operating_hours_end: str = "22:00"
 
 
 class BulkDeleteIn(Schema):
@@ -112,6 +114,7 @@ class AssetTransactionOut(Schema):
     amount: Decimal
     category: str
     description: str
+    payment_method: str
     transaction_date: date
     reservation_id: Optional[UUID]
     created_at: datetime  # ISO 8601
@@ -178,6 +181,8 @@ class ReservationConfigOut(Schema):
     expiration_hours: int
     allow_same_day_booking: bool
     min_advance_hours: int
+    operating_hours_start: str
+    operating_hours_end: str
     is_active: bool
 
 
