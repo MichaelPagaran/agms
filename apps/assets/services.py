@@ -117,6 +117,8 @@ def create_or_update_reservation_config(
     expiration_hours: int = DEFAULT_EXPIRATION_HOURS,
     allow_same_day_booking: bool = True,
     min_advance_hours: int = 0,
+    operating_hours_start: str = '09:00',
+    operating_hours_end: str = '22:00',
 ) -> ReservationConfigDTO:
     """Create or update reservation configuration for an organization."""
     config, created = ReservationConfig.objects.update_or_create(
@@ -125,6 +127,8 @@ def create_or_update_reservation_config(
             'expiration_hours': expiration_hours,
             'allow_same_day_booking': allow_same_day_booking,
             'min_advance_hours': min_advance_hours,
+            'operating_hours_start': operating_hours_start,
+            'operating_hours_end': operating_hours_end,
             'is_active': True,
         }
     )

@@ -154,6 +154,8 @@ def update_config(request: HttpRequest, payload: ReservationConfigIn):
         expiration_hours=payload.expiration_hours,
         allow_same_day_booking=payload.allow_same_day_booking,
         min_advance_hours=payload.min_advance_hours,
+        operating_hours_start=payload.operating_hours_start,
+        operating_hours_end=payload.operating_hours_end,
     )
     return ReservationConfigOut(**config.__dict__)
 

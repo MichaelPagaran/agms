@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from apps.organizations.models import Organization, OrganizationType
 from apps.registry.models import Unit, UnitCategory, MembershipStatus, OccupancyStatus
-from apps.assets.models import Asset, AssetType, Reservation, ReservationStatus, PaymentStatus
+from apps.assets.models import Asset, AssetType, Reservation, ReservationStatus, PaymentStatus, ReservationConfig
 from apps.ledger.models import (
     TransactionCategory, Transaction, TransactionType, PaymentType, 
     TransactionStatus, BillingConfig
@@ -81,6 +81,7 @@ class Command(BaseCommand):
             self._seed_ledger(org)
             
         if seed_all or options['reservations']:
+            self._seed_reservation_config(org)
             self._seed_reservations(org)
 
         self.stdout.write(self.style.SUCCESS('Seeding completed successfully.'))
@@ -356,7 +357,7 @@ class Command(BaseCommand):
     def _seed_reservations(self, org):
         self.stdout.write('Seeding Reservations...')
         
-        clubhouse = Asset.objects.filter(name="Clubhouse", org_id=org.id).first()
+        clubhouse = Asset.objects.filter(name="Function Hall", org_id=org.id).first()
         homeowner = User.objects.filter(username="homeowner").first()
         
         if clubhouse and homeowner:
@@ -405,3 +406,23 @@ class Command(BaseCommand):
                 )
             
             self.stdout.write(' - Created reservations')
+        else:
+            self.stdout.write(self.style.WARNING(' - Skipped reservations: Function Hall asset or homeowner user not found'))
+
+    def _seed_reservation_config(self, org):
+        self.stdout.write('Seeding Reservation Config...')
+        config, created = ReservationConfig.objects.get_or_create(
+            org_id=org.id,
+            defaults={
+                'expiration_hours': 48,
+                'allow_same_day_booking': True,
+                'min_advance_hours': 2,
+                'operating_hours_start': '09:00',
+                'operating_hours_end': '22:00',
+                'is_active': True,
+            }
+        )
+        if created:
+            self.stdout.write(' - Created ReservationConfig')
+        else:
+            self.stdout.write(' - ReservationConfig already exists')
