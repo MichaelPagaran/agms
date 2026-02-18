@@ -9,7 +9,8 @@ from apps.registry.models import Unit, UnitCategory, MembershipStatus, Occupancy
 from apps.assets.models import Asset, AssetType, Reservation, ReservationStatus, PaymentStatus, ReservationConfig
 from apps.ledger.models import (
     TransactionCategory, Transaction, TransactionType, PaymentType, 
-    TransactionStatus, BillingConfig
+    TransactionStatus, BillingConfig, DuesStatement, DuesStatementStatus,
+    DiscountConfig, DiscountType, PenaltyPolicy
 )
 
 User = get_user_model()
@@ -408,6 +409,98 @@ class Command(BaseCommand):
                 created_count += 1
 
         self.stdout.write(f' - Created {created_count} transactions')
+
+        # Seed Discounts
+        discount_data = [
+            {'name': 'Early Payment Discount', 'description': 'Discount for paying before the due date',
+             'discount_type': DiscountType.PERCENTAGE, 'value': Decimal('5.00'), 'min_months': 1},
+            {'name': 'Annual Advance Payment', 'description': '10% off for 12-month advance payment',
+             'discount_type': DiscountType.PERCENTAGE, 'value': Decimal('10.00'), 'min_months': 12},
+            {'name': 'Senior Citizen Discount', 'description': 'Flat discount for senior citizen homeowners',
+             'discount_type': DiscountType.FLAT_AMOUNT, 'value': Decimal('50.00'), 'min_months': 1},
+        ]
+        disc_count = 0
+        for d in discount_data:
+            _, created = DiscountConfig.objects.get_or_create(
+                org_id=org.id, name=d['name'],
+                defaults={
+                    'description': d['description'],
+                    'discount_type': d['discount_type'],
+                    'value': d['value'],
+                    'min_months': d['min_months'],
+                    'is_active': True,
+                }
+            )
+            if created:
+                disc_count += 1
+        self.stdout.write(f' - Created {disc_count} discounts')
+
+        # Seed Penalties
+        penalty_data = [
+            {'name': 'Late Payment Penalty', 'description': '2% monthly interest on overdue balance',
+             'rate_type': 'PERCENT', 'rate_value': Decimal('2.00'), 'grace_period_days': 15},
+            {'name': 'Reconnection Fee', 'description': 'Flat fee for service reconnection',
+             'rate_type': 'FLAT', 'rate_value': Decimal('200.00'), 'grace_period_days': 30},
+        ]
+        pen_count = 0
+        for p in penalty_data:
+            _, created = PenaltyPolicy.objects.get_or_create(
+                org_id=org.id, name=p['name'],
+                defaults={
+                    'description': p['description'],
+                    'rate_type': p['rate_type'],
+                    'rate_value': p['rate_value'],
+                    'grace_period_days': p['grace_period_days'],
+                    'is_active': True,
+                }
+            )
+            if created:
+                pen_count += 1
+        self.stdout.write(f' - Created {pen_count} penalties')
+
+        # Seed Dues Statements
+        if units:
+            dues_count = 0
+            for i, unit in enumerate(units[:3]):
+                for month in [1, 2]:
+                    due_date = now.replace(month=month, day=15).date()
+                    if month == 1:
+                        # Paid
+                        _, created = DuesStatement.objects.get_or_create(
+                            org_id=org.id, unit_id=unit.id, statement_year=now.year, statement_month=month,
+                            defaults={
+                                'base_amount': Decimal('500.00'),
+                                'penalty_amount': Decimal('0.00'),
+                                'discount_amount': Decimal('25.00'),
+                                'net_amount': Decimal('475.00'),
+                                'amount_paid': Decimal('475.00'),
+                                'status': DuesStatementStatus.PAID,
+                                'due_date': due_date,
+                                'paid_date': due_date - timedelta(days=3),
+                            }
+                        )
+                    else:
+                        # February - mix of statuses
+                        statuses = [DuesStatementStatus.UNPAID, DuesStatementStatus.PARTIAL, DuesStatementStatus.OVERDUE]
+                        st = statuses[i % len(statuses)]
+                        paid = Decimal('250.00') if st == DuesStatementStatus.PARTIAL else Decimal('0.00')
+                        penalty = Decimal('10.00') if st == DuesStatementStatus.OVERDUE else Decimal('0.00')
+                        net = Decimal('500.00') + penalty
+                        _, created = DuesStatement.objects.get_or_create(
+                            org_id=org.id, unit_id=unit.id, statement_year=now.year, statement_month=month,
+                            defaults={
+                                'base_amount': Decimal('500.00'),
+                                'penalty_amount': penalty,
+                                'discount_amount': Decimal('0.00'),
+                                'net_amount': net,
+                                'amount_paid': paid,
+                                'status': st,
+                                'due_date': due_date,
+                            }
+                        )
+                    if created:
+                        dues_count += 1
+            self.stdout.write(f' - Created {dues_count} dues statements')
 
     def _seed_reservations(self, org):
         self.stdout.write('Seeding Reservations...')

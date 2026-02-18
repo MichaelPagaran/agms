@@ -821,6 +821,42 @@ def trigger_billing_generation(request: HttpRequest):
     )
 
 
+@router.get("/billing/statements", response=List[DuesStatementOut], auth=None)
+def list_dues_statements(
+    request: HttpRequest,
+    status: Optional[str] = None,
+    unit_id: Optional[UUID] = None,
+):
+    """List dues statements with optional filtering by status and unit."""
+    require_permission(request, Permissions.LEDGER_VIEW_TRANSACTIONS)
+    org_id = get_org_id(request)
+    
+    queryset = DuesStatement.objects.filter(org_id=org_id)
+    if status:
+        queryset = queryset.filter(status=status)
+    if unit_id:
+        queryset = queryset.filter(unit_id=unit_id)
+    
+    return [
+        DuesStatementOut(
+            id=s.id,
+            unit_id=s.unit_id,
+            statement_month=s.statement_month,
+            statement_year=s.statement_year,
+            base_amount=s.base_amount,
+            penalty_amount=s.penalty_amount,
+            discount_amount=s.discount_amount,
+            net_amount=s.net_amount,
+            amount_paid=s.amount_paid,
+            balance_due=s.balance_due,
+            status=s.status,
+            due_date=s.due_date,
+            paid_date=s.paid_date,
+        )
+        for s in queryset[:100]
+    ]
+
+
 # =============================================================================
 # PDF Report Endpoints
 # =============================================================================
