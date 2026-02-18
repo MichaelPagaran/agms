@@ -4,6 +4,7 @@ from uuid import UUID
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 from django.utils import timezone
+from django.db.models import Q, Sum, Count
 from django.core.files.uploadedfile import UploadedFile
 from apps.ledger.models import (
     Transaction, TransactionType, TransactionStatus, TransactionAttachment
@@ -13,61 +14,6 @@ from apps.ledger.attachment_service import upload_receipt
 from apps.ledger.models import DiscountConfig
 
 from .models import Asset, Reservation, ReservationStatus, PaymentStatus, ReservationConfig
-from .dtos import (
-    AssetDTO, AssetAnalyticsDTO, AssetTransactionDTO,
-    ReservationDTO, AvailabilitySlotDTO, ReservationBreakdownDTO,
-    DiscountPreviewDTO, ReservationConfigDTO,
-)
-# ... existing imports ...
-
-# ... inside submit_reservation_receipt ...
-
-def submit_reservation_receipt(
-    reservation_id: UUID,
-    file: UploadedFile,
-    uploaded_by_id: UUID,
-) -> ReservationDTO:
-    """
-    Submit a receipt for reservation payment.
-    Creates a PENDING transaction, uploads the file, and updates reservation status to FOR_REVIEW.
-    """
-    reservation = Reservation.objects.get(id=reservation_id)
-    asset = Asset.objects.get(id=reservation.asset_id)
-    
-    if reservation.status not in [ReservationStatus.PENDING_PAYMENT, ReservationStatus.FOR_REVIEW]:
-        raise ValueError("Receipt can only be submitted for pending reservations")
-        
-    # Create PENDING transaction
-    # Note: We use the full amount for now, assuming 1 receipt = full payment
-    amount_to_pay = reservation.balance_due
-    
-    income_dto, _ = record_income(
-        org_id=reservation.org_id,
-        amount=amount_to_pay,
-        category="Rental Income",
-        description=f"Initial receipt submission for {asset.name} - {reservation.reserved_by_name}",
-        transaction_date=timezone.now().date(),
-        payment_type='EXACT',
-        unit_id=reservation.unit_id,
-        payer_name=reservation.reserved_by_name,
-        created_by_id=uploaded_by_id,
-        status=TransactionStatus.PENDING,
-    )
-    
-    # Upload receipt using attachment service
-    # This handles validation and storage (S3/local)
-    upload_receipt(
-        file=file,
-        transaction_id=income_dto.id,
-        uploaded_by_id=uploaded_by_id
-    )
-    
-    # Update reservation
-    reservation.status = ReservationStatus.FOR_REVIEW
-    reservation.income_transaction_id = income_dto.id
-    reservation.save()
-    
-    return _reservation_to_dto(reservation, asset.name)
 from .dtos import (
     AssetDTO, AssetAnalyticsDTO, AssetTransactionDTO,
     ReservationDTO, AvailabilitySlotDTO, ReservationBreakdownDTO,
@@ -246,6 +192,7 @@ def get_assets_with_analytics(org_id: UUID) -> List[AssetAnalyticsDTO]:
     """
     Get all assets with current month's income/expense summary.
     User Story #1: See list of shared infrastructures and monthly income.
+    Uses batched queries to avoid N+1 performance issues.
     """
     assets = Asset.objects.filter(org_id=org_id, is_active=True)
     
@@ -257,33 +204,48 @@ def get_assets_with_analytics(org_id: UUID) -> List[AssetAnalyticsDTO]:
     else:
         month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
     
-    results = []
-    for asset in assets:
-        # Get income from Ledger transactions
-        income = Transaction.objects.filter(
-            asset_id=asset.id,
+    asset_ids = [a.id for a in assets]
+    
+    # Batch query: income per asset
+    income_map = {
+        row['asset_id']: row['total'] or Decimal('0.00')
+        for row in Transaction.objects.filter(
+            asset_id__in=asset_ids,
             transaction_type=TransactionType.INCOME,
             status=TransactionStatus.POSTED,
             transaction_date__gte=month_start,
             transaction_date__lte=month_end,
-        ).aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
-        
-        # Get expenses from Ledger transactions
-        expenses = Transaction.objects.filter(
-            asset_id=asset.id,
+        ).values('asset_id').annotate(total=Sum('net_amount'))
+    }
+    
+    # Batch query: expenses per asset
+    expense_map = {
+        row['asset_id']: row['total'] or Decimal('0.00')
+        for row in Transaction.objects.filter(
+            asset_id__in=asset_ids,
             transaction_type=TransactionType.EXPENSE,
             status=TransactionStatus.POSTED,
             transaction_date__gte=month_start,
             transaction_date__lte=month_end,
-        ).aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
-        
-        # Count reservations this month
-        reservation_count = Reservation.objects.filter(
-            asset_id=asset.id,
+        ).values('asset_id').annotate(total=Sum('net_amount'))
+    }
+    
+    # Batch query: reservation counts per asset
+    reservation_map = {
+        row['asset_id']: row['count']
+        for row in Reservation.objects.filter(
+            asset_id__in=asset_ids,
             status__in=[ReservationStatus.CONFIRMED, ReservationStatus.COMPLETED],
             start_datetime__date__gte=month_start,
             start_datetime__date__lte=month_end,
-        ).count()
+        ).values('asset_id').annotate(count=Count('id'))
+    }
+    
+    results = []
+    for asset in assets:
+        income = income_map.get(asset.id, Decimal('0.00'))
+        expenses = expense_map.get(asset.id, Decimal('0.00'))
+        reservation_count = reservation_map.get(asset.id, 0)
         
         results.append(AssetAnalyticsDTO(
             asset_id=asset.id,
@@ -594,15 +556,12 @@ def record_reservation_payment(
 
 def submit_reservation_receipt(
     reservation_id: UUID,
-    file_url: str,
-    file_name: str,
-    file_type: str,
-    file_size: int,
+    file: UploadedFile,
     uploaded_by_id: UUID,
 ) -> ReservationDTO:
     """
     Submit a receipt for reservation payment.
-    Creates a PENDING transaction and updates reservation status to FOR_REVIEW.
+    Creates a PENDING transaction, uploads the file, and updates reservation status to FOR_REVIEW.
     """
     reservation = Reservation.objects.get(id=reservation_id)
     asset = Asset.objects.get(id=reservation.asset_id)
@@ -612,8 +571,6 @@ def submit_reservation_receipt(
         
     # Create PENDING transaction
     # Note: We use the full amount for now, assuming 1 receipt = full payment
-    # If the user uploads partial payment receipt, staff can adjust or reject?
-    # For MVP, we assume it covers the balance due.
     amount_to_pay = reservation.balance_due
     
     income_dto, _ = record_income(
@@ -629,14 +586,12 @@ def submit_reservation_receipt(
         status=TransactionStatus.PENDING,
     )
     
-    # Create attachment for the transaction
-    TransactionAttachment.objects.create(
+    # Upload receipt using attachment service
+    # This handles validation and storage (S3/local)
+    upload_receipt(
+        file=file,
         transaction_id=income_dto.id,
-        file_url=file_url,
-        file_name=file_name,
-        file_type=file_type,
-        file_size=file_size,
-        uploaded_by_id=uploaded_by_id,
+        uploaded_by_id=uploaded_by_id
     )
     
     # Update reservation

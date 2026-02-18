@@ -139,6 +139,8 @@ def get_config(request: HttpRequest):
             expiration_hours=services.DEFAULT_EXPIRATION_HOURS,
             allow_same_day_booking=True,
             min_advance_hours=0,
+            operating_hours_start="09:00",
+            operating_hours_end="22:00",
             is_active=True,
         )
     return ReservationConfigOut(**config.__dict__)

@@ -32,7 +32,7 @@ def calculate_carried_penalties(org_id: UUID, unit_id: UUID) -> Decimal:
     unpaid_statements = DuesStatement.objects.filter(
         org_id=org_id,
         unit_id=unit_id,
-        status__in=[DuesStatementStatus.PENDING, DuesStatementStatus.PARTIAL],
+        status__in=[DuesStatementStatus.UNPAID, DuesStatementStatus.PARTIAL, DuesStatementStatus.OVERDUE],
     )
     
     total_penalty = Decimal('0.00')
