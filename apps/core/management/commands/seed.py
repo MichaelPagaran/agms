@@ -315,99 +315,187 @@ class Command(BaseCommand):
             name="Utilities",
             transaction_type=TransactionType.EXPENSE
         )
+        security_cat, _ = TransactionCategory.objects.get_or_create(
+            org_id=org.id,
+            name="Security Services",
+            transaction_type=TransactionType.EXPENSE
+        )
+        landscaping_cat, _ = TransactionCategory.objects.get_or_create(
+            org_id=org.id,
+            name="Landscaping",
+            transaction_type=TransactionType.EXPENSE
+        )
         
-        self.stdout.write(' - Created categories')
+        self.stdout.write(' - Created 6 categories')
 
-        # Transactions
-        # 1. Income: Dues Payment
-        if not Transaction.objects.filter(description="January Dues").exists():
-            Transaction.objects.create(
-                org_id=org.id,
-                category_id=dues_cat.id,
-                transaction_type=TransactionType.INCOME,
-                status=TransactionStatus.POSTED,
-                payment_type=PaymentType.EXACT,
-                gross_amount=Decimal('500.00'),
-                net_amount=Decimal('500.00'),
-                amount=Decimal('500.00'),
-                description="January Dues",
-                payer_name="Juan Dela Cruz",
-                transaction_date=timezone.now().date() - timedelta(days=15),
-                is_verified=True
-            )
+        # Units for reference
+        units = list(Unit.objects.filter(org_id=org.id)[:5])
+        now = timezone.now()
 
-        # 2. Expense: Light Bulb Replacement
-        if not Transaction.objects.filter(description="Street Light Replacement").exists():
-            Transaction.objects.create(
-                org_id=org.id,
-                category_id=maint_cat.id,
-                transaction_type=TransactionType.EXPENSE,
-                status=TransactionStatus.POSTED,
-                gross_amount=Decimal('1500.00'),
-                net_amount=Decimal('1500.00'),
-                amount=Decimal('1500.00'),
-                description="Street Light Replacement",
-                transaction_date=timezone.now().date() - timedelta(days=5),
-                is_verified=True,
-                is_disbursed=True
-            )
-            
-        self.stdout.write(' - Created sample transactions')
+        transactions_data = [
+            # Income - Association Dues
+            {'cat': dues_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('500.00'), 'desc': 'January Dues - Block 1 Lot 1',
+             'payer': 'Juan Dela Cruz', 'days_ago': 45, 'verified': True},
+            {'cat': dues_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('500.00'), 'desc': 'January Dues - Block 1 Lot 2',
+             'payer': 'Maria Santos', 'days_ago': 42, 'verified': True},
+            {'cat': dues_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('500.00'), 'desc': 'February Dues - Block 1 Lot 1',
+             'payer': 'Juan Dela Cruz', 'days_ago': 12, 'verified': True},
+            {'cat': dues_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('500.00'), 'desc': 'February Dues - Block 1 Lot 3',
+             'payer': 'Pedro Reyes', 'days_ago': 10, 'verified': False},
+            {'cat': dues_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.PENDING,
+             'amount': Decimal('500.00'), 'desc': 'February Dues - Block 1 Lot 5',
+             'payer': 'Ana Garcia', 'days_ago': 3, 'verified': False},
+            # Income - Facility Rental
+            {'cat': rental_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('4000.00'), 'desc': 'Function Hall Rental - Birthday Party',
+             'payer': 'Juan Dela Cruz', 'days_ago': 35, 'verified': True},
+            {'cat': rental_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('800.00'), 'desc': 'Swimming Pool Rental (4hrs)',
+             'payer': 'Lisa Mendoza', 'days_ago': 20, 'verified': True},
+            {'cat': rental_cat, 'type': TransactionType.INCOME, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('600.00'), 'desc': 'Basketball Court Rental (3hrs)',
+             'payer': 'Mark Tan', 'days_ago': 8, 'verified': False},
+            # Expenses - Maintenance
+            {'cat': maint_cat, 'type': TransactionType.EXPENSE, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('1500.00'), 'desc': 'Street Light Replacement - Main Road',
+             'payer': None, 'days_ago': 40, 'verified': True},
+            {'cat': maint_cat, 'type': TransactionType.EXPENSE, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('3200.00'), 'desc': 'Swimming Pool Pump Repair',
+             'payer': None, 'days_ago': 25, 'verified': True},
+            {'cat': maint_cat, 'type': TransactionType.EXPENSE, 'status': TransactionStatus.PENDING,
+             'amount': Decimal('850.00'), 'desc': 'Playground Equipment Maintenance',
+             'payer': None, 'days_ago': 5, 'verified': False},
+            # Expenses - Utilities
+            {'cat': util_cat, 'type': TransactionType.EXPENSE, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('8500.00'), 'desc': 'January Electricity Bill',
+             'payer': None, 'days_ago': 38, 'verified': True},
+            {'cat': util_cat, 'type': TransactionType.EXPENSE, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('2800.00'), 'desc': 'January Water Bill',
+             'payer': None, 'days_ago': 36, 'verified': True},
+            # Expenses - Security
+            {'cat': security_cat, 'type': TransactionType.EXPENSE, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('15000.00'), 'desc': 'Security Guard Services - January',
+             'payer': None, 'days_ago': 30, 'verified': True},
+            # Expenses - Landscaping
+            {'cat': landscaping_cat, 'type': TransactionType.EXPENSE, 'status': TransactionStatus.POSTED,
+             'amount': Decimal('5000.00'), 'desc': 'Monthly Garden Maintenance',
+             'payer': None, 'days_ago': 15, 'verified': True},
+        ]
+
+        created_count = 0
+        for t in transactions_data:
+            if not Transaction.objects.filter(description=t['desc']).exists():
+                unit = units[created_count % len(units)] if units and t['type'] == TransactionType.INCOME else None
+                Transaction.objects.create(
+                    org_id=org.id,
+                    category_id=t['cat'].id,
+                    transaction_type=t['type'],
+                    status=t['status'],
+                    payment_type=PaymentType.EXACT,
+                    gross_amount=t['amount'],
+                    net_amount=t['amount'],
+                    amount=t['amount'],
+                    description=t['desc'],
+                    payer_name=t['payer'],
+                    transaction_date=(now - timedelta(days=t['days_ago'])).date(),
+                    is_verified=t['verified'],
+                    unit_id=unit.id if unit else None,
+                )
+                created_count += 1
+
+        self.stdout.write(f' - Created {created_count} transactions')
 
     def _seed_reservations(self, org):
         self.stdout.write('Seeding Reservations...')
         
-        clubhouse = Asset.objects.filter(name="Function Hall", org_id=org.id).first()
+        assets = {
+            'Function Hall': Asset.objects.filter(name="Function Hall", org_id=org.id).first(),
+            'Swimming Pool': Asset.objects.filter(name="Swimming Pool", org_id=org.id).first(),
+            'Basketball Court': Asset.objects.filter(name="Basketball Court", org_id=org.id).first(),
+            'Pickleball Court': Asset.objects.filter(name="Pickleball Court", org_id=org.id).first(),
+        }
         homeowner = User.objects.filter(username="homeowner").first()
-        
-        if clubhouse and homeowner:
-            # 1. Past Reservation (Completed)
-            start_date = timezone.now() - timedelta(days=10)
-            end_date = start_date + timedelta(hours=4)
-            
-            if not Reservation.objects.filter(reserved_by_id=homeowner.id, status=ReservationStatus.COMPLETED).exists():
-                Reservation.objects.create(
-                    org_id=org.id,
-                    asset_id=clubhouse.id,
-                    reserved_by_id=homeowner.id,
-                    reserved_by_name=f"{homeowner.first_name} {homeowner.last_name}",
-                    purpose="Birthday Party",
-                    start_datetime=start_date,
-                    end_datetime=end_date,
-                    hourly_rate=clubhouse.rental_rate,
-                    hours=4,
-                    subtotal=clubhouse.rental_rate * 4,
-                    total_amount=clubhouse.rental_rate * 4,
-                    amount_paid=clubhouse.rental_rate * 4,
-                    status=ReservationStatus.COMPLETED,
-                    payment_status=PaymentStatus.PAID
-                )
+        staff = User.objects.filter(username="staff").first()
+        now = timezone.now()
 
-            # 2. Future Reservation (Confirmed)
-            future_start = timezone.now() + timedelta(days=5)
-            future_end = future_start + timedelta(hours=3)
-            
-            if not Reservation.objects.filter(reserved_by_id=homeowner.id, status=ReservationStatus.CONFIRMED).exists():
+        if not all(assets.values()) or not homeowner:
+            self.stdout.write(self.style.WARNING(' - Skipped: missing assets or homeowner'))
+            return
+
+        reservations_data = [
+            # 1. Completed - Function Hall (past)
+            {'asset': 'Function Hall', 'user': homeowner, 'name': 'Juan Dela Cruz',
+             'purpose': 'Birthday Party', 'hours': 4, 'days_offset': -10,
+             'status': ReservationStatus.COMPLETED, 'pay_status': PaymentStatus.PAID, 'paid_full': True},
+            # 2. Completed - Swimming Pool (past)
+            {'asset': 'Swimming Pool', 'user': homeowner, 'name': 'Juan Dela Cruz',
+             'purpose': 'Family Swimming', 'hours': 3, 'days_offset': -7,
+             'status': ReservationStatus.COMPLETED, 'pay_status': PaymentStatus.PAID, 'paid_full': True},
+            # 3. Confirmed - Basketball Court (future)
+            {'asset': 'Basketball Court', 'user': homeowner, 'name': 'Juan Dela Cruz',
+             'purpose': 'Basketball Game', 'hours': 2, 'days_offset': 3,
+             'status': ReservationStatus.CONFIRMED, 'pay_status': PaymentStatus.PAID, 'paid_full': True},
+            # 4. Confirmed - Function Hall (future)
+            {'asset': 'Function Hall', 'user': staff, 'name': 'Maria Santos',
+             'purpose': 'HOA General Assembly', 'hours': 5, 'days_offset': 7,
+             'status': ReservationStatus.CONFIRMED, 'pay_status': PaymentStatus.PAID, 'paid_full': True},
+            # 5. Pending Payment - Swimming Pool (future)
+            {'asset': 'Swimming Pool', 'user': homeowner, 'name': 'Pedro Reyes',
+             'purpose': 'Pool Party', 'hours': 4, 'days_offset': 5,
+             'status': ReservationStatus.PENDING_PAYMENT, 'pay_status': PaymentStatus.UNPAID, 'paid_full': False},
+            # 6. For Review - Pickleball Court (future)
+            {'asset': 'Pickleball Court', 'user': homeowner, 'name': 'Lisa Mendoza',
+             'purpose': 'Pickleball Tournament', 'hours': 3, 'days_offset': 10,
+             'status': ReservationStatus.FOR_REVIEW, 'pay_status': PaymentStatus.UNPAID, 'paid_full': False},
+            # 7. Cancelled - Function Hall (past)
+            {'asset': 'Function Hall', 'user': homeowner, 'name': 'Mark Tan',
+             'purpose': 'Wedding Reception', 'hours': 8, 'days_offset': -3,
+             'status': ReservationStatus.CANCELLED, 'pay_status': PaymentStatus.UNPAID, 'paid_full': False},
+            # 8. For Review - Basketball Court (future)
+            {'asset': 'Basketball Court', 'user': staff, 'name': 'Ana Garcia',
+             'purpose': 'Youth Sports Clinic', 'hours': 3, 'days_offset': 14,
+             'status': ReservationStatus.FOR_REVIEW, 'pay_status': PaymentStatus.UNPAID, 'paid_full': False},
+        ]
+
+        created_count = 0
+        for r in reservations_data:
+            asset = assets[r['asset']]
+            start = now + timedelta(days=r['days_offset'])
+            # Set to 10 AM start
+            start = start.replace(hour=10, minute=0, second=0, microsecond=0)
+            end = start + timedelta(hours=r['hours'])
+            subtotal = asset.rental_rate * r['hours']
+            deposit = asset.deposit_amount or Decimal('0.00')
+            total = subtotal + deposit
+            paid = total if r['paid_full'] else Decimal('0.00')
+
+            if not Reservation.objects.filter(
+                reserved_by_name=r['name'], purpose=r['purpose']
+            ).exists():
                 Reservation.objects.create(
                     org_id=org.id,
-                    asset_id=clubhouse.id,
-                    reserved_by_id=homeowner.id,
-                    reserved_by_name=f"{homeowner.first_name} {homeowner.last_name}",
-                    purpose="Meeting",
-                    start_datetime=future_start,
-                    end_datetime=future_end,
-                    hourly_rate=clubhouse.rental_rate,
-                    hours=3,
-                    subtotal=clubhouse.rental_rate * 3,
-                    total_amount=clubhouse.rental_rate * 3,
-                    amount_paid=clubhouse.rental_rate * 3,
-                    status=ReservationStatus.CONFIRMED,
-                    payment_status=PaymentStatus.PAID
+                    asset_id=asset.id,
+                    reserved_by_id=r['user'].id,
+                    reserved_by_name=r['name'],
+                    purpose=r['purpose'],
+                    start_datetime=start,
+                    end_datetime=end,
+                    hourly_rate=asset.rental_rate,
+                    hours=r['hours'],
+                    subtotal=subtotal,
+                    deposit_amount=deposit,
+                    total_amount=total,
+                    amount_paid=paid,
+                    status=r['status'],
+                    payment_status=r['pay_status'],
                 )
-            
-            self.stdout.write(' - Created reservations')
-        else:
-            self.stdout.write(self.style.WARNING(' - Skipped reservations: Function Hall asset or homeowner user not found'))
+                created_count += 1
+
+        self.stdout.write(f' - Created {created_count} reservations')
 
     def _seed_reservation_config(self, org):
         self.stdout.write('Seeding Reservation Config...')
