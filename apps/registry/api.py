@@ -18,6 +18,7 @@ from apps.identity.decorators import has_permission
 from apps.identity.permissions import Permissions
 from apps.identity.api import require_auth
 from apps.governance.models import AuditLog
+from apps.governance.audit_service import log_action, AuditAction
 from .models import Unit
 from .dtos import UnitOut, UnitIn, DeleteRequestIn
 from .services import list_units, create_unit, update_unit, soft_delete_unit, get_filter_options, get_unit_for_user
@@ -49,15 +50,15 @@ def bulk_delete_units_api(request: HttpRequest, payload: DeleteRequestIn):
         unit.save()
         deleted_count += 1
         
-        # Log audit
-        AuditLog.objects.create(
+        # Log audit via centralized service
+        log_action(
             org_id=user.org_id_id,
-            action="DELETE_UNIT",
+            action=AuditAction.DELETE_UNIT,
             target_type="Unit",
             target_id=unit.id,
             target_label=unit.full_label,
             performed_by=user,
-            context={"unit_id": str(unit.id)}
+            context={"unit_id": str(unit.id)},
         )
         
     return {"deleted": deleted_count}
@@ -150,7 +151,17 @@ def create_unit_api(request: HttpRequest, payload: UnitIn):
     if not user.org_id_id:
         raise HttpError(400, "User has no organization context")
 
-    return create_unit(user.org_id_id, payload)
+    unit = create_unit(user.org_id_id, payload)
+    log_action(
+        org_id=user.org_id_id,
+        action=AuditAction.CREATE_UNIT,
+        target_type="Unit",
+        target_id=unit.id,
+        target_label=unit.full_label if hasattr(unit, 'full_label') else str(unit.id),
+        performed_by=user,
+        context={"unit_id": str(unit.id)},
+    )
+    return unit
 
 
 @router.put("/{unit_id}", response=UnitOut, auth=None)
@@ -161,11 +172,18 @@ def update_unit_api(request: HttpRequest, unit_id: UUID, payload: UnitIn):
     
     Requires REGISTRY_MANAGE_UNIT permission.
     """
-
-
     unit = update_unit(unit_id, payload)
     if not unit:
         raise HttpError(404, "Unit not found")
+    log_action(
+        org_id=request.user.org_id_id,
+        action=AuditAction.UPDATE_UNIT,
+        target_type="Unit",
+        target_id=unit_id,
+        target_label=str(unit_id),
+        performed_by=request.user,
+        context={"unit_id": str(unit_id)},
+    )
     return unit
 
 
@@ -178,9 +196,17 @@ def delete_unit_api(request: HttpRequest, unit_id: UUID):
     Requires REGISTRY_MANAGE_UNIT permission.
     """
     # Authorization handled by decorator
-        
     success = soft_delete_unit(unit_id)
     if not success:
         raise HttpError(404, "Unit not found")
+    log_action(
+        org_id=request.user.org_id_id,
+        action=AuditAction.DELETE_UNIT,
+        target_type="Unit",
+        target_id=unit_id,
+        target_label=str(unit_id),
+        performed_by=request.user,
+        context={"unit_id": str(unit_id)},
+    )
     return 204
 

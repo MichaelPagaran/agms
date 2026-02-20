@@ -13,6 +13,7 @@ from django.conf import settings
 
 from apps.identity.permissions import Permissions, get_user_permissions
 from apps.governance.models import AuditLog
+from apps.governance.audit_service import log_action, AuditAction
 from .schemas import (
     IncomeIn, ExpenseIn, TransactionUpdateIn, TransactionVerificationIn,
     BulkPaymentIn, PreviewBreakdownIn, CategoryIn, DiscountConfigIn,
@@ -89,7 +90,7 @@ def create_income(request: HttpRequest, payload: IncomeIn):
             created_by_id=request.user.id,
         )
         
-        return IncomeResultOut(
+        result = IncomeResultOut(
             transaction=TransactionOut(
                 id=transaction_dto.id,
                 org_id=transaction_dto.org_id,
@@ -103,6 +104,16 @@ def create_income(request: HttpRequest, payload: IncomeIn):
             ),
             credit_added=credit_added,
         )
+        log_action(
+            org_id=org_id,
+            action=AuditAction.CREATE_INCOME,
+            target_type="Transaction",
+            target_id=transaction_dto.id,
+            target_label=f"Income ₱{payload.amount} – {payload.category or 'N/A'}",
+            performed_by=request.user,
+            context={"amount": str(payload.amount), "category": payload.category},
+        )
+        return result
     except ValueError as e:
         raise HttpError(400, str(e))
 
@@ -126,7 +137,7 @@ def create_expense(request: HttpRequest, payload: ExpenseIn):
             asset_id=payload.asset_id,
         )
         
-        return TransactionOut(
+        result = TransactionOut(
             id=transaction_dto.id,
             org_id=transaction_dto.org_id,
             transaction_type=transaction_dto.transaction_type,
@@ -137,8 +148,19 @@ def create_expense(request: HttpRequest, payload: ExpenseIn):
             transaction_date=transaction_dto.transaction_date,
             is_verified=transaction_dto.is_verified,
         )
+        log_action(
+            org_id=org_id,
+            action=AuditAction.CREATE_EXPENSE,
+            target_type="Transaction",
+            target_id=transaction_dto.id,
+            target_label=f"Expense ₱{payload.amount} – {payload.category or 'N/A'}",
+            performed_by=request.user,
+            context={"amount": str(payload.amount), "category": payload.category},
+        )
+        return result
     except ValueError as e:
         raise HttpError(400, str(e))
+
 
 
 @router.post("/transactions/income/preview", response=TransactionBreakdownOut, auth=None)
@@ -222,30 +244,6 @@ def list_transactions(
         limit=limit,
     )
     
-    # Log audit
-    try:
-        AuditLog.objects.create(
-            org_id=org_id,
-            action="VIEW_LEDGER",
-            target_type="TransactionList",
-            target_id=org_id,
-            target_label=f"Ledger View ({len(transactions)} items)",
-            performed_by=request.user,
-            context={
-                "filters": {
-                    "start_date": str(start_date) if start_date else None,
-                    "end_date": str(end_date) if end_date else None,
-                    "category_id": str(category_id) if category_id else None,
-                    "transaction_type": transaction_type,
-                    "status": status,
-                    "unit_id": str(unit_id) if unit_id else None,
-                }
-            }
-        )
-    except Exception:
-        # Don't fail the request if logging fails
-        pass
-    
     return [
         TransactionOut(
             id=t.id,
@@ -315,7 +313,7 @@ def verify_transaction(request: HttpRequest, transaction_id: UUID):
             transaction_id=transaction_id,
             verified_by_id=request.user.id,
         )
-        return VerificationResultOut(
+        result = VerificationResultOut(
             transaction=TransactionOut(
                 id=transaction_dto.id,
                 org_id=transaction_dto.org_id,
@@ -329,6 +327,16 @@ def verify_transaction(request: HttpRequest, transaction_id: UUID):
             ),
             message="Transaction verified",
         )
+        log_action(
+            org_id=transaction_dto.org_id,
+            action=AuditAction.VERIFY_TRANSACTION,
+            target_type="Transaction",
+            target_id=transaction_dto.id,
+            target_label=f"₱{transaction_dto.amount} – {transaction_dto.category}",
+            performed_by=request.user,
+            context={"amount": str(transaction_dto.amount)},
+        )
+        return result
     except ValueError as e:
         raise HttpError(400, str(e))
 
@@ -347,7 +355,7 @@ def cancel_transaction(request: HttpRequest, transaction_id: UUID, payload: Tran
             cancelled_by_id=request.user.id,
             reason=payload.comment or "",
         )
-        return TransactionOut(
+        result = TransactionOut(
             id=transaction_dto.id,
             org_id=transaction_dto.org_id,
             transaction_type=transaction_dto.transaction_type,
@@ -358,6 +366,16 @@ def cancel_transaction(request: HttpRequest, transaction_id: UUID, payload: Tran
             transaction_date=transaction_dto.transaction_date,
             is_verified=transaction_dto.is_verified,
         )
+        log_action(
+            org_id=transaction_dto.org_id,
+            action=AuditAction.CANCEL_TRANSACTION,
+            target_type="Transaction",
+            target_id=transaction_dto.id,
+            target_label=f"₱{transaction_dto.amount} – {transaction_dto.category}",
+            performed_by=request.user,
+            context={"reason": payload.comment or "", "amount": str(transaction_dto.amount)},
+        )
+        return result
     except ValueError as e:
         raise HttpError(400, str(e))
 
@@ -626,7 +644,7 @@ def create_category(request: HttpRequest, payload: CategoryIn):
         description=payload.description,
     )
     
-    return CategoryOut(
+    result = CategoryOut(
         id=category.id,
         name=category.name,
         transaction_type=category.transaction_type,
@@ -634,6 +652,16 @@ def create_category(request: HttpRequest, payload: CategoryIn):
         is_active=category.is_active,
         is_default=category.is_default,
     )
+    log_action(
+        org_id=org_id,
+        action=AuditAction.CREATE_CATEGORY,
+        target_type="TransactionCategory",
+        target_id=category.id,
+        target_label=f"{category.name} ({category.transaction_type})",
+        performed_by=request.user,
+        context={"name": category.name, "transaction_type": category.transaction_type},
+    )
+    return result
 
 
 # =============================================================================
@@ -680,7 +708,7 @@ def create_discount(request: HttpRequest, payload: DiscountConfigIn):
         valid_until=payload.valid_until,
     )
     
-    return DiscountConfigOut(
+    result = DiscountConfigOut(
         id=discount.id,
         name=discount.name,
         description=discount.description,
@@ -689,6 +717,16 @@ def create_discount(request: HttpRequest, payload: DiscountConfigIn):
         min_months=discount.min_months,
         is_active=discount.is_active,
     )
+    log_action(
+        org_id=org_id,
+        action=AuditAction.CREATE_DISCOUNT,
+        target_type="DiscountConfig",
+        target_id=discount.id,
+        target_label=f"{discount.name} ({discount.discount_type})",
+        performed_by=request.user,
+        context={"name": discount.name, "type": discount.discount_type, "value": str(discount.value)},
+    )
+    return result
 
 
 # =============================================================================
@@ -733,7 +771,7 @@ def create_penalty_policy(request: HttpRequest, payload: PenaltyPolicyIn):
         applicable_categories=payload.applicable_categories or [],
     )
     
-    return PenaltyPolicyOut(
+    result = PenaltyPolicyOut(
         id=policy.id,
         name=policy.name,
         description=policy.description,
@@ -742,6 +780,16 @@ def create_penalty_policy(request: HttpRequest, payload: PenaltyPolicyIn):
         grace_period_days=policy.grace_period_days,
         is_active=policy.is_active,
     )
+    log_action(
+        org_id=org_id,
+        action=AuditAction.CREATE_PENALTY,
+        target_type="PenaltyPolicy",
+        target_id=policy.id,
+        target_label=f"{policy.name} ({policy.rate_type})",
+        performed_by=request.user,
+        context={"name": policy.name, "rate_type": policy.rate_type, "rate_value": str(policy.rate_value)},
+    )
+    return result
 
 
 # =============================================================================
@@ -794,7 +842,7 @@ def create_or_update_billing_config(request: HttpRequest):
         }
     )
     
-    return BillingConfigOut(
+    result = BillingConfigOut(
         id=config.id,
         org_id=config.org_id,
         monthly_dues_amount=config.monthly_dues_amount,
@@ -802,6 +850,21 @@ def create_or_update_billing_config(request: HttpRequest):
         grace_period_days=config.grace_period_days,
         is_active=config.is_active,
     )
+    log_action(
+        org_id=org_id,
+        action=AuditAction.UPDATE_BILLING_CONFIG,
+        target_type="BillingConfig",
+        target_id=config.id,
+        target_label=f"Billing config ({'created' if created else 'updated'})",
+        performed_by=request.user,
+        context={
+            "monthly_dues_amount": str(config.monthly_dues_amount),
+            "billing_day": config.billing_day,
+            "grace_period_days": config.grace_period_days,
+            "was_created": created,
+        },
+    )
+    return result
 
 
 @router.post("/billing/generate", auth=None)

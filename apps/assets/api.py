@@ -9,6 +9,7 @@ from django.http import HttpRequest
 
 from apps.identity.permissions import Permissions, get_user_permissions
 from apps.identity.models import UserRole
+from apps.governance.audit_service import log_action, AuditAction
 
 from . import services
 from .schemas import (
@@ -90,6 +91,15 @@ def create_asset(request: HttpRequest, payload: AssetIn):
     require_permission(request, Permissions.ASSET_MANAGE)
     org_id = get_org_id(request)
     asset = services.create_asset(org_id, payload)
+    log_action(
+        org_id=org_id,
+        action=AuditAction.CREATE_ASSET,
+        target_type="Asset",
+        target_id=asset.id,
+        target_label=f"{asset.name} ({asset.asset_type})",
+        performed_by=request.user,
+        context={"name": asset.name, "asset_type": asset.asset_type},
+    )
     return AssetOut(**asset.__dict__)
 
 
@@ -107,9 +117,21 @@ def update_asset(request: HttpRequest, asset_id: UUID, payload: AssetIn):
 def delete_asset(request: HttpRequest, asset_id: UUID):
     """Soft-delete asset. Requires ASSET_MANAGE permission."""
     require_permission(request, Permissions.ASSET_MANAGE)
+    asset = services.get_asset_dto(asset_id)
+    if not asset:
+        raise HttpError(404, "Asset not found")
     success = services.soft_delete_asset(asset_id)
     if not success:
         raise HttpError(404, "Asset not found")
+    log_action(
+        org_id=get_org_id(request),
+        action=AuditAction.DELETE_ASSET,
+        target_type="Asset",
+        target_id=asset_id,
+        target_label=asset.name,
+        performed_by=request.user,
+        context={"asset_id": str(asset_id)},
+    )
     return 204, None
 
 
@@ -158,6 +180,20 @@ def update_config(request: HttpRequest, payload: ReservationConfigIn):
         min_advance_hours=payload.min_advance_hours,
         operating_hours_start=payload.operating_hours_start,
         operating_hours_end=payload.operating_hours_end,
+    )
+    log_action(
+        org_id=org_id,
+        action=AuditAction.UPDATE_ASSET_CONFIG,
+        target_type="ReservationConfig",
+        target_id=config.id,
+        target_label="Reservation Config",
+        performed_by=request.user,
+        context={
+            "expiration_hours": payload.expiration_hours,
+            "allow_same_day_booking": payload.allow_same_day_booking,
+            "operating_hours_start": payload.operating_hours_start,
+            "operating_hours_end": payload.operating_hours_end,
+        },
     )
     return ReservationConfigOut(**config.__dict__)
 
@@ -243,6 +279,19 @@ def create_reservation(request: HttpRequest, payload: ReservationIn):
             created_by_id=request.user.id,
             is_homeowner=is_homeowner(request),
         )
+        log_action(
+            org_id=org_id,
+            action=AuditAction.CREATE_RESERVATION,
+            target_type="Reservation",
+            target_id=reservation.id,
+            target_label=f"Reservation by {reservation.reserved_by_name} on {reservation.reservation_date}",
+            performed_by=request.user,
+            context={
+                "asset_id": str(reservation.asset_id),
+                "reservation_date": str(reservation.reservation_date),
+                "reserved_by": reservation.reserved_by_name,
+            },
+        )
         return ReservationOut(**reservation.__dict__)
     except ValueError as e:
         raise HttpError(400, str(e))
@@ -311,6 +360,18 @@ def record_payment(request: HttpRequest, reservation_id: UUID, payload: Reservat
             recorded_by_id=request.user.id,
             reference_number=payload.reference_number,
         )
+        log_action(
+            org_id=reservation.org_id,
+            action=AuditAction.RECORD_PAYMENT,
+            target_type="Reservation",
+            target_id=reservation_id,
+            target_label=f"Payment ₱{payload.amount} for reservation {reservation_id}",
+            performed_by=request.user,
+            context={
+                "amount": str(payload.amount),
+                "reference_number": payload.reference_number,
+            },
+        )
         return ReservationOut(**reservation.__dict__)
     except ValueError as e:
         raise HttpError(400, str(e))
@@ -363,6 +424,15 @@ def confirm_receipt(request: HttpRequest, reservation_id: UUID):
             reservation_id=reservation_id,
             confirmed_by_id=request.user.id,
         )
+        log_action(
+            org_id=updated.org_id,
+            action=AuditAction.CONFIRM_RECEIPT,
+            target_type="Reservation",
+            target_id=reservation_id,
+            target_label=f"Receipt confirmed for reservation {reservation_id}",
+            performed_by=request.user,
+            context={"reservation_id": str(reservation_id)},
+        )
         return ReservationOut(**updated.__dict__)
     except ValueError as e:
         raise HttpError(400, str(e))
@@ -388,6 +458,15 @@ def cancel_reservation(request: HttpRequest, reservation_id: UUID, payload: Canc
             reservation_id=reservation_id,
             cancelled_by_id=request.user.id,
             reason=payload.reason,
+        )
+        log_action(
+            org_id=cancelled.org_id,
+            action=AuditAction.CANCEL_RESERVATION,
+            target_type="Reservation",
+            target_id=reservation_id,
+            target_label=f"Reservation {reservation_id} cancelled",
+            performed_by=request.user,
+            context={"reason": payload.reason or "", "reservation_id": str(reservation_id)},
         )
         return ReservationOut(**cancelled.__dict__)
     except ValueError as e:
